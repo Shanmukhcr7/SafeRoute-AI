@@ -1,0 +1,1 @@
+{"model_type": "HistGradientBoostingClassifier", "dataset_size": 220573, "target": "Severe Accident Probability", "features": ["lat", "long", "is_raining", "is_snowing", "is_fog", "is_night", "hour"], "accuracy": 0.7498583248328233}

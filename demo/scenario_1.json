@@ -1,0 +1,18 @@
+{
+    "scenario_id": "S1",
+    "name": "Optimal Driving Conditions",
+    "weather": {
+        "rain": false,
+        "fog": false,
+        "snow": false,
+        "temp": 22.0
+    },
+    "time": {
+        "hour": 10
+    },
+    "vehicle": {
+        "driver_profile": "SAFE",
+        "speed": 55.0
+    },
+    "expected_outcome": "Low Risk, Safe Zone Status"
+}

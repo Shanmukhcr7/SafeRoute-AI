@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smooth ADAS Simulator</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        .car-icon {
+            font-size: 24px;
+            text-align: center;
+            line-height: 24px;
+            transition: transform 0.1s linear;
+        }
+        .custom-popup .leaflet-popup-content-wrapper {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 8px;
+            padding: 5px;
+            border: 1px solid #444;
+        }
+        .custom-popup .leaflet-popup-tip {
+            background: rgba(0, 0, 0, 0.8);
+        }
+        .alert-red { color: #ff4444; font-weight: bold; }
+        .alert-orange { color: #ffaa00; font-weight: bold; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Include turf.js for fast collision detection -->
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
+<script>
+    // THESE VARIABLES WILL BE INJECTED BY PYTHON
+    const routeGeometry = __ROUTE_GEOMETRY__; // Array of [lon, lat]
+    const riskZones = __RISK_ZONES__; // Array of { polygon: [[lon,lat]...], color: "...", level: "...", score: 95 }
+    
+    // Initialize map
+    const startCoord = [routeGeometry[0][1], routeGeometry[0][0]];
+    const map = L.map('map', { zoomControl: false }).setView(startCoord, 13);
+    
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    }).addTo(map);
+
+    // Draw route
+    const latlngs = routeGeometry.map(p => [p[1], p[0]]);
+    const path = L.polyline(latlngs, {color: '#00aaff', weight: 4, opacity: 0.8}).addTo(map);
+    map.fitBounds(path.getBounds());
+
+    // Draw risk zones
+    const zonePolygons = [];
+    riskZones.forEach(zone => {
+        const polyLatLngs = zone.polygon.map(p => [p[1], p[0]]);
+        const leafletPoly = L.polygon(polyLatLngs, {
+            color: zone.color,
+            fillOpacity: 0.4,
+            weight: 0, // Removed stroke to fix fading line artifacts
+            stroke: false
+        }).addTo(map);
+        
+        // Save turf polygon for collision
+        zonePolygons.push({
+            turfPoly: turf.polygon([zone.polygon.concat([zone.polygon[0]])]), // turf expects closed ring
+            data: zone
+        });
+    });
+
+    // Create Turf LineString for the entire route
+    const routeLine = turf.lineString(routeGeometry);
+    const totalDistance = turf.length(routeLine, {units: 'kilometers'});
+    
+    const carSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M7 6L9 2H15L17 6V18L15 22H9L7 18V6Z" fill="#ff0000" stroke="black" stroke-width="1.5"/>
+        <path d="M8 8H16V12H8V8Z" fill="#333333"/>
+    </svg>`;
+    
+    const carIcon = L.divIcon({
+        html: `<div id="car-div" class="car-icon">${carSvg}</div>`,
+        className: '',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+    });
+    
+    const carMarker = L.marker(startCoord, {icon: carIcon}).addTo(map);
+    const popup = L.popup({
+        className: 'custom-popup',
+        closeButton: false,
+        autoClose: false,
+        offset: [0, -10]
+    });
+
+    // Animation Variables
+    let currentDistance = 0; // km
+    let simulatedSpeedKmh = 300; // Simulated speed (much faster than real-time so the demo finishes, but smooth)
+    let lastTime = null;
+    let activeAlert = null;
+
+    function animate(timestamp) {
+        if (!lastTime) lastTime = timestamp;
+        const deltaTime = (timestamp - lastTime) / 1000; // seconds
+        lastTime = timestamp;
+
+        // Advance distance based on speed
+        currentDistance += (simulatedSpeedKmh / 3600) * deltaTime;
+        
+        if (currentDistance >= totalDistance) {
+            currentDistance = totalDistance;
+            // Journey complete
+            return;
+        }
+
+        // Get exact interpolated point along the route
+        const currentPt = turf.along(routeLine, currentDistance, {units: 'kilometers'}).geometry.coordinates;
+        const lat = currentPt[1];
+        const lon = currentPt[0];
+        
+        // Calculate heading properly
+        if (currentDistance + 0.05 < totalDistance) {
+            const nextPt = turf.along(routeLine, currentDistance + 0.05, {units: 'kilometers'}).geometry.coordinates;
+            const bearing = turf.bearing(turf.point(currentPt), turf.point(nextPt));
+            const carDiv = document.getElementById('car-div');
+            if (carDiv) {
+                // Top-down SVG points UP (0 deg natively). So rotation == bearing.
+                carDiv.style.transform = `rotate(${bearing}deg)`;
+            }
+        }
+        
+        carMarker.setLatLng([lat, lon]);
+
+        // Perfect camera tracking without fighting the user's scroll zoom
+        map.panTo([lat, lon], {animate: false});
+
+        // 500m Lookahead Collision detection
+        let checkDistance = Math.min(currentDistance + 0.5, totalDistance);
+        const lookaheadPt = turf.along(routeLine, checkDistance, {units: 'kilometers'}).geometry.coordinates;
+        const lookaheadPoint = turf.point(lookaheadPt);
+        
+        let hitZone = null;
+        for (let i = 0; i < zonePolygons.length; i++) {
+            if (turf.booleanPointInPolygon(lookaheadPoint, zonePolygons[i].turfPoly)) {
+                hitZone = zonePolygons[i].data;
+                break;
+            }
+        }
+
+        // Handle Popups
+        if (hitZone) {
+            if (activeAlert !== hitZone.score) {
+                const alertClass = hitZone.level === "CRITICAL" || hitZone.level === "FATAL" ? "alert-red" : "alert-orange";
+                const speedLimit = hitZone.level === "FATAL" ? 30 : (hitZone.level === "CRITICAL" ? 50 : 70);
+                const content = `
+                    <div style="text-align:center;">
+                        <div class="${alertClass}">⚠ ${hitZone.level} RISK 500m AHEAD</div>
+                        <div style="font-size:12px; margin-top:4px;">Risk Score: ${hitZone.score.toFixed(1)}</div>
+                        <div style="font-size:12px;">AI REC: Reduce speed to ${speedLimit}km/h</div>
+                    </div>
+                `;
+                popup.setContent(content);
+                carMarker.bindPopup(popup).openPopup();
+                activeAlert = hitZone.score;
+            }
+        } else {
+            if (activeAlert !== null) {
+                carMarker.closePopup();
+                activeAlert = null;
+            }
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    // Start animation shortly after load
+    setTimeout(() => {
+        requestAnimationFrame(animate);
+    }, 1000);
+
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+    "scenario_id": "S3",
+    "name": "Severe Fog / Night Highway",
+    "weather": {
+        "rain": false,
+        "fog": true,
+        "snow": false,
+        "temp": 4.0
+    },
+    "time": {
+        "hour": 3
+    },
+    "vehicle": {
+        "driver_profile": "NORMAL",
+        "speed": 85.0
+    },
+    "expected_outcome": "Warning Risk, Fog Light Recommendation, Visibility Penalty"
+}

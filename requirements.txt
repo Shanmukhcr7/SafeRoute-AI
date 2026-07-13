@@ -1,0 +1,12 @@
+pandas
+numpy
+geopandas
+shapely
+h3
+SQLAlchemy
+pytest
+folium
+streamlit
+xgboost
+scikit-learn
+plotly

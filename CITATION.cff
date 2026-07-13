@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite it using these metadata."
+title: "AI-Powered Road Accident Risk Zone Detection and Real-Time ADAS Engine"
+abstract: "A complete Digital Twin Intelligent Transportation System. Combines Historical Risk (H3 GIS), live Context Awareness (Weather/Time/Speed), Machine Learning Severity Predictions (XGBoost/RF), and a Priority-queued Advanced Driver Assistance System (ADAS)."
+authors:
+  - family-names: "Student"
+    given-names: "Name"
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+version: 1.0.0
+date-released: 2026-07-13
+repository-code: "https://github.com/username/road-risk-ai"
+keywords:
+  - Artificial Intelligence
+  - GIS
+  - H3 Hexagonal Grid
+  - Advanced Driver Assistance System
+  - Digital Twin
+  - Streamlit
+  - XGBoost
+license: MIT

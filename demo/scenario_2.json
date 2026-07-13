@@ -1,0 +1,18 @@
+{
+    "scenario_id": "S2",
+    "name": "High Risk / Heavy Rain / Aggressive",
+    "weather": {
+        "rain": true,
+        "fog": false,
+        "snow": false,
+        "temp": 12.0
+    },
+    "time": {
+        "hour": 22
+    },
+    "vehicle": {
+        "driver_profile": "AGGRESSIVE",
+        "speed": 105.0
+    },
+    "expected_outcome": "Critical Risk, High Priority Alert, Level 4/5 Escalation"
+}

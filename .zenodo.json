@@ -1,0 +1,19 @@
+{
+  "title": "AI-Powered Road Accident Risk Zone Detection and Real-Time ADAS Engine",
+  "description": "Research repository containing a complete GIS-driven Machine Learning pipeline for Road Risk detection and a Digital Twin Vehicle Simulator for ADAS evaluation.",
+  "creators": [
+    {
+      "name": "Student Name",
+      "affiliation": "University"
+    }
+  ],
+  "access_right": "open",
+  "license": "MIT",
+  "keywords": [
+    "Machine Learning",
+    "GIS",
+    "ADAS",
+    "Digital Twin",
+    "Road Safety"
+  ]
+}
