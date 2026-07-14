@@ -38,7 +38,7 @@ graph TD
 ---
 
 ## 3. Dataset Processing
-The system utilizes authentic road traffic data sourced from the official French governmental database covering accidents from 2005 to 2021.
+The system utilizes authentic road traffic data sourced from the official French governmental database covering accidents from 2005 to 2021 (available via [Kaggle: Accidents in France from 2005 to 2016](https://www.kaggle.com/datasets/ahmedlahlou/accidents-in-france-from-2005-to-2016)).
 
 ### 3.1 Raw Data Sources
 *   `caracteristics.csv`: Contains the GPS coordinates (Latitude/Longitude), environmental lighting conditions, and meteorological weather data for over 800,000 raw accident records.

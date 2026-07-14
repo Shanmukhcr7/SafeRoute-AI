@@ -6,7 +6,7 @@
 
 A next-generation **Advanced Driver Assistance System (ADAS) Simulator** and **Route Analysis Engine**. SafeRoute-AI shifts traditional road-risk analysis from static heatmaps to a live, machine-learning-powered **Digital Twin Simulator**. 
 
-By combining 15 years of authentic French accident datasets (220,000+ GPS records) with Uber's H3 spatial indexing and a dynamically adapting HistGradientBoosting Classifier, this project models exactly how safe a route is *right now*, under current environmental conditions.
+By combining 15 years of authentic French accident datasets (220,000+ GPS records, sourced from the [France Accidents 2005-2016 Kaggle Dataset](https://www.kaggle.com/datasets/ahmedlahlou/accidents-in-france-from-2005-to-2016)) with Uber's H3 spatial indexing and a dynamically adapting HistGradientBoosting Classifier, this project models exactly how safe a route is *right now*, under current environmental conditions.
 
 ---
 
