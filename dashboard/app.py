@@ -13,51 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Dark Theme & Glassmorphism CSS
-st.markdown("""
-    <style>
-    /* Main Background */
-    .stApp {
-        background-color: #0B1220;
-        color: #E5E7EB;
-    }
-    
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #111827 !important;
-        border-right: 1px solid #1F2937;
-    }
-    
-    /* Metrics / KPI Cards */
-    [data-testid="stMetricValue"] {
-        font-size: 1.8rem !important;
-        color: #3B82F6 !important; /* Blue Accent */
-    }
-    
-    /* Glassmorphism Containers */
-    .glass-card {
-        background: rgba(17, 24, 39, 0.7);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 20px;
-        margin-bottom: 20px;
-    }
-    
-    /* Titles */
-    h1, h2, h3 {
-        color: #F9FAFB !important;
-        font-weight: 600 !important;
-    }
-    
-    /* Success/Warning/Critical Colors */
-    .text-success { color: #10B981; }
-    .text-warning { color: #F59E0B; }
-    .text-critical { color: #EF4444; }
-    .text-accent { color: #3B82F6; }
-    </style>
-""", unsafe_allow_html=True)
+# Global CSS removed in favor of .streamlit/config.toml light theme
 
 st.title("🚦 AI Road Traffic Intelligence Command Center")
 
