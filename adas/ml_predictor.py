@@ -27,6 +27,8 @@ class DynamicRiskPredictor:
         
         # Create input dataframe matching training features
         X_input = pd.DataFrame([{
+            'lat_rounded': round(lat, 1),
+            'long_rounded': round(lon, 1),
             'is_raining': is_raining,
             'is_snowing': is_snowing,
             'is_fog': is_fog,

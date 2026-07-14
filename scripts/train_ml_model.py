@@ -64,7 +64,10 @@ def train_model():
             
     df['hour'] = df['hrmn'].apply(extract_hour)
     
-    features = ['is_raining', 'is_snowing', 'is_fog', 'is_night', 'hour']
+    df['lat_rounded'] = df['lat'].round(1)
+    df['long_rounded'] = df['long'].round(1)
+    
+    features = ['lat_rounded', 'long_rounded', 'is_raining', 'is_snowing', 'is_fog', 'is_night', 'hour']
     X = df[features]
     y = df['is_severe']
     
