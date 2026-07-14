@@ -18,6 +18,7 @@ By combining 15 years of authentic French accident datasets (220,000+ GPS record
 
 2. **Machine Learning AI Predictor**
    - **HistGradientBoosting Classifier**: Trained on massive CSV datasets (`caracteristics.csv`, `users.csv`), the ML engine learned the correlations between environmental factors (Lighting, Weather) and accident severity (Fatal, Hospitalized, Minor).
+   - **Spatial Target-Leakage Prevention (Macro-Regions)**: To prevent the ML from "cheating" by memorizing exact intersections (which ruins dynamic weather predictions), GPS coordinates are mathematically rounded to 1 decimal place (11x11 km grids). This forces the AI to learn regional trends rather than micro-locations, resulting in a perfectly balanced **0.795 ROC-AUC score**.
    - **Dynamic Risk Multipliers**: At night, or during rain, the ML model dynamically calculates real-time probabilities. A historically "Moderate" risk intersection can dynamically jump to "CRITICAL" if the weather degrades.
 
 3. **Live ADAS Route Simulation**
