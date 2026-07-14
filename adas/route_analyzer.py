@@ -55,10 +55,18 @@ class RouteAnalyzer:
             dynamic_score = min(base_score * multiplier, 100.0)
             
             # Recalculate level based on new score
-            if dynamic_score > 90: level = "FATAL"
-            elif dynamic_score > 75: level = "CRITICAL"
-            elif dynamic_score > 50: level = "HIGH"
-            else: level = "MODERATE"
+            if dynamic_score > 90: 
+                level = "FATAL"
+                dyn_color = "#000000"
+            elif dynamic_score > 75: 
+                level = "CRITICAL"
+                dyn_color = "#FF0000"
+            elif dynamic_score > 50: 
+                level = "HIGH"
+                dyn_color = "#FFA500"
+            else: 
+                level = "MODERATE"
+                dyn_color = "#FFFF00"
             
             if level in ["CRITICAL", "FATAL"]:
                 critical_count += 1
@@ -66,7 +74,7 @@ class RouteAnalyzer:
             dynamic_zones[z] = {
                 "score": dynamic_score,
                 "level": level,
-                "color": self.risk_zones[z]["color"] # Keep base color logic handled by UI
+                "color": dyn_color # Dynamically calculated so weather changes color
             }
             
             total_dynamic_score += dynamic_score

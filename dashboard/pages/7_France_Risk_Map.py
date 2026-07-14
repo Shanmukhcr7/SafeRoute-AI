@@ -13,7 +13,7 @@ st.markdown("This map visualizes the historical H3 risk zones aggregated from th
 @st.cache_data
 def load_zones():
     conn = sqlite3.connect("database/road_risk.db")
-    df = pd.read_sql_query("SELECT h3_index, risk_score, risk_level, risk_color FROM risk_scores WHERE risk_level IN ('CRITICAL', 'HIGH') LIMIT 5000", conn)
+    df = pd.read_sql_query("SELECT h3_index, risk_score, risk_level, risk_color FROM risk_scores WHERE risk_level IN ('FATAL', 'CRITICAL', 'HIGH') LIMIT 5000", conn)
     conn.close()
     return df
 
