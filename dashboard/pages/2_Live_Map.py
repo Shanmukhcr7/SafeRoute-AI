@@ -163,10 +163,7 @@ elif st.session_state.simulation_state == "RUNNING":
                 poly_lonlat = [[p[1], p[0]] for p in poly] # JS turf needs lon,lat
                 color = dynamic_zones[z]["color"]
                 
-                # Override FATAL color from Black to Neon Magenta so it's visible on the dark map
-                if dynamic_zones[z]["level"] == "FATAL":
-                    color = "#FF00FF"
-                elif not color: # fallback
+                if not color: # fallback
                     color = "#FF0000" if dynamic_zones[z]["level"] in ["FATAL", "CRITICAL"] else "#FFA500"
                 
                 zones_data.append({
