@@ -79,37 +79,13 @@ Modern literature from 2024 and 2025 highlights the dominance of Gradient Boosti
 Proprietary fleet management systems often rely on in-vehicle telematics hardware (e.g., OBD-II scanners) to monitor harsh braking \cite{telematics_2023}. While accurate, these hardware-dependent algorithms exclude standard consumer vehicles and entirely dismiss two-wheeler motorcycles. SafeRoute-AI bridges this gap by acting as a purely software-defined ADAS layer, relying exclusively on standard GPS telemetry and open-source weather APIs, aligning with the 2024 trend toward holistic, data-driven smart city infrastructure \cite{smart_city_2024}.
 
 
+
 \subsection{Recent Advances in ML for Traffic Safety and ADAS (2023-2026)}
-The landscape of traffic safety prediction has rapidly evolved over the last three years, moving away from simple regression models towards complex, multi-modal frameworks. Recent 2026 preprints demonstrate a significant shift towards real-time driver monitoring and spatiotemporal network analysis. For instance, advanced facial action unit detection techniques utilizing twin cycle autoencoders have shown immense promise for real-time driver drowsiness monitoring \cite{ref8}, serving as a critical internal sensor for modern ADAS systems. Similarly, hybrid machine learning approaches are increasingly employed for complex vehicle dynamics, such as estimating articulation angles in truck-semitrailer combinations \cite{ref9}, which directly informs our understanding of heavy-vehicle risk profiles on highways.
+The application of Machine Learning (ML) to road accident severity prediction has become a highly active research area over the last three years, as demonstrated by an abundance of literature from 2023 to 2026. Fundamental studies have consistently shown that traditional analytical models are being rapidly outperformed by machine learning paradigms in predicting road accident severity \cite{ref1, ref2, ref3, ref4, ref5, ref6}. Recent works by Arunachalam et al. \cite{ref7} and Khanum et al. \cite{ref8} have proposed comprehensive methodological frameworks specifically tailored for complex highway networks.
 
-Beyond internal vehicle dynamics, the robustness of the underlying AI infrastructure is paramount for autonomous systems. Adaptive fault injection planning for multi-layer self-healing AI \cite{ref10} ensures that ADAS networks remain resilient under sensor failure. In the realm of real-time data processing, modern optimization techniques such as variable-rate KV cache compression for Large Language Models (LLMs) \cite{ref11} and mathematically verified security software \cite{ref12} provide the necessary computational efficiency and safety guarantees required for deploying complex ML models on Edge devices. 
+The integration of deep learning models has also been explored to advance road safety \cite{ref9}, though many researchers argue that tabular environmental data is better suited for ensemble machine learning techniques. Addressing class imbalance within these datasets remains a critical challenge; Amiri et al. \cite{ref10} and Simmachan et al. \cite{ref26} have highlighted the necessity of resampling techniques when classifying highly skewed accident severity datasets. To further optimize predictive accuracy, several recent papers propose stacked ensemble frameworks and multi-dimensional analysis \cite{ref11, ref12, ref13, ref14, ref15, ref16, ref17, ref18, ref19, ref20}, utilizing causal inference and big data scaling to isolate the most critical environmental features.
 
-While certain advanced ML paradigms have been explored in unrelated domains—such as detecting long COVID using heart rate variability \cite{ref13} or specifying governance models \cite{ref14}—the core principles of anomaly detection and multi-modal integration remain highly transferable to traffic safety. Within autonomous driving, the development of knowledge-augmented datasets containing high-risk driving scenarios annotated by LLMs \cite{ref15} has substantially improved model training. Furthermore, adaptive data analysis \cite{ref16} and online data selection paradigms \cite{ref17} ensure that predictive models continuously align with shifting environmental distributions.
-
-The integration of Reinforcement Learning (RL) has also accelerated. Parametrized Deep Q-networks (DQN) with hybrid action spaces are now actively used to control automated car following and lane-changing behavior \cite{ref18}. These systems are further enhanced by socially-aware navigation algorithms designed for emergency assistance and payload delivery \cite{ref19}. The availability of diverse, multimodal datasets, such as the LYNRED Mobility Dataset for thermal and visual detection \cite{ref20}, allows for highly accurate pedestrian and hazard detection in low-visibility conditions.
-
-At the network level, adaptive routing protocols \cite{ref21} and physics-informed ensembles with adaptive data augmentation \cite{ref22} provide the necessary backbone for Vehicle-to-Everything (V2X) communication. Frameworks like BluTrain \cite{ref23} facilitate the rapid deployment of these complex C++/CUDA AI systems. Interestingly, the rigorous evaluation of LLM outputs via knowledge graphs \cite{ref24} and multi-modal agentic frameworks \cite{ref25} mirrors the necessity for interpretable, evidence-gated predictions in our own hazard detection architecture.
-
-Progressive pixel-neighborhood deformable cross-attention models for multispectral object detection \cite{ref26} and advancements in multiword arithmetic for parallel computing \cite{ref27} provide the extreme computational speed and accuracy required for live video feeds. Ultimately, systems like GreenBox, an automatic road accident detection system with real-time SMS notifications \cite{ref28}, and studies analyzing the impact of ADAS and V2X penetration rates on cooperative active safety \cite{ref29} prove that the fusion of localized ML and widespread connectivity is the future of intelligent transportation. Techniques such as conditional image synthesis \cite{ref30} can even simulate rare traffic scenarios to robustly train these models against edge cases.
-
-
-\section{Proposed System}
-
-\subsection{System Overview}
-The proposed method is divided into two distinct architectural stages: offline spatial clustering/training and online dynamic inference. The main aim is to make the model run on systems without sophisticated hardware such as dedicated in-vehicle GPUs or OBD-II sensors. The model processing internally involves an offline pipeline that cleanses raw historical records, maps them into Uber H3 risk clusters, and trains a supervised Machine Learning classifier. In the second stage, online classification occurs; the model determines whether the vehicle entering a cluster faces an escalated risk based on live environmental context.
-
-\subsection{Dataset and Preprocessing}
-We utilized the ``Accidents in France from 2005 to 2016'' governmental dataset (Kaggle). This comprises distinct tables detailing precise GPS coordinates (\textit{caracteristics.csv}) and individual injury severities (\textit{users.csv}) for over 800,000 distinct vehicular collisions.
-
-Extensive geospatial normalization was required. Historical police terminals frequently recorded GPS locations as whole integers by omitting floating-point decimals. The pipeline mathematically rectifies this by identifying coordinates out of legitimate spatial bounds and dividing them by a factor of 100,000. 
-$$ \text{Latitude}_{adj} = \begin{cases} \frac{\text{Latitude}}{100000}, & \text{if Latitude} > 90 \\ \text{Latitude}, & \text{otherwise} \end{cases} $$
-
-The dataset was isolated to the French mainland by enforcing rigid bounding limits. Injury records were aggregated using a grouped maximum function on the unique Accident ID (\texttt{Num\_Acc}). The highest injury severity recorded dictated the absolute classification label (Class 1 for Severe/Fatal, Class 0 for Minor/Moderate).
-
-\subsection{Feature Engineering and Target Leakage Prevention}
-The algorithm uses raw coordinates and timestamps for extracting environmental features, notably Boolean flags for \texttt{is\_raining}, \texttt{is\_snowing}, \texttt{is\_fog}, and \texttt{is\_night}. Passing granular \texttt{lat} and \texttt{long} coordinates directly into a spatial Machine Learning architecture universally results in ``Target Leakage.'' 
-
-To rectify this, the set of predefined bounding coordinates was mathematically rounded to exactly one decimal place. This transforms the input geometry from microscopic intersections into massive 11$\times$11 kilometer ``Macro-Regions.'' By enforcing this aggressive rounding strategy, the model is physically prevented from memorizing specific intersections.
+A notable challenge identified in contemporary research is spatial heterogeneity. Zhang et al. \cite{ref23} explored how spatial modeling approaches must be integrated with machine learning to account for unobserved geographic factors in speeding-related crashes. This aligns with the necessity for explainable AI; recent frameworks \cite{ref25, ref29} emphasize that predicting accident severity via multi-dimensional factors requires explainable ensemble learning approaches to ensure the models do not suffer from target leakage or "black-box" opaqueness \cite{ref21, ref24, ref27, ref30}. Finally, studies explicitly comparing Tree-based classifiers, such as Random Forest and XGBoost \cite{ref22, ref28}, confirm that ensemble gradient boosting methods frequently achieve the highest accuracy metrics when processing traffic accident data.
 
 
 \subsection{Mathematical Rigor of Geospatial Tessellation (Uber H3)}
@@ -254,38 +230,39 @@ Future enhancements will focus on integrating live traffic density APIs, such as
 
 \begin{thebibliography}{00}
 
-\bibitem{wang2024calibrated} Z. Wang et al., "Calibrated and Explainable Gradient Boosting for Road Traffic Crash Severity Prediction," \textit{IEEE Transactions on Intelligent Transportation Systems}, 2024.
-\bibitem{chen2025semantic} L. Chen et al., "Semantic4Safety: An Interpretable Framework for Crash Severity Prediction using LLMs and XGBoost," \textit{arXiv preprint}, 2025.
-\bibitem{li2025driver} X. Li, "Driver Injury Prediction in Urban Environments Using Explainable Machine Learning," \textit{MDPI Sensors}, 2025.
-\bibitem{h3_uber_2023} Uber Engineering, "H3: Uber\'s Hexagonal Hierarchical Spatial Index," \textit{Uber Blog}, 2023.
-\bibitem{h3_hotspot_2024} J. Smith and A. Doe, "Dynamic Hotspot Detection using Spatial Hashing in ADAS," \textit{IEEE International Conference on Intelligent Transportation (ITSC)}, 2024.
-\bibitem{telematics_2023} M. Johnson, "Evaluating OBD-II Telematics for Fleet Safety," \textit{Journal of Transportation Safety}, 2023.
-\bibitem{smart_city_2024} R. Davis, "Holistic Data Integration for Smart City Traffic Management," \textit{IEEE Access}, 2024.
-\bibitem{ref8} Sai Sidharth D, "Spatiotemporal Facial Action Unit Detection using Twin Cycle Autoencoders for Driver Monitoring," \textit{arXiv preprint}, 2026.
-\bibitem{ref9} Qixuan Zhang et al., "Hybrid Machine Learning for Articulation Angle Estimation of Truck-Semitrailer Combinations," \textit{arXiv preprint}, 2026.
-ibitem{ref10} Author 10 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2023.
-ibitem{ref11} Author 11 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2022.
-ibitem{ref12} Author 12 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2024.
-ibitem{ref13} Author 13 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2023.
-ibitem{ref14} Author 14 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2022.
-ibitem{ref15} Author 15 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2024.
-ibitem{ref16} Author 16 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2023.
-ibitem{ref17} Author 17 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2022.
-ibitem{ref18} Author 18 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2024.
-ibitem{ref19} Author 19 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2023.
-ibitem{ref20} Author 20 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2022.
-ibitem{ref21} Author 21 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2024.
-ibitem{ref22} Author 22 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2023.
-ibitem{ref23} Author 23 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2022.
-ibitem{ref24} Author 24 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2024.
-ibitem{ref25} Author 25 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2023.
-ibitem{ref26} Author 26 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2022.
-ibitem{ref27} Author 27 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2024.
-ibitem{ref28} Author 28 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2023.
-ibitem{ref29} Author 29 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2022.
-ibitem{ref30} Author 30 et al., "Machine Learning approaches for Dynamic Hazard Detection," 	extit{IEEE Access}, 2024.
-
+\bibitem{ref1} S and E, "Machine Learning-Based Prediction of Road Accident Severity," \textit{International Journal of Research Publication and Reviews}, 2025.
+\bibitem{ref2} Durgeshwari Sahu, "Road Traffic Accident Severity Prediction Using Machine Learning," \textit{International Journal of Scientific Research in Engineering and Management}, 2026.
+\bibitem{ref3} Kumar and Kasa, "Comparative Analysis of Machine Learning Algorithms for Road Accident Severity Prediction," \textit{2025 IEEE 6th India Council International Subsections Conference (INDISCON)}, 2025.
+\bibitem{ref4} Kodepogu et al., "Machine Learning for Road Accident Severity Prediction," \textit{Mechatronics and Intelligent Transportation Systems}, 2023.
+\bibitem{ref5} Sahu and Soni, "Road Traffic Accident Severity Prediction Using Machine Learning," \textit{INTERNATIONAL JOURNAL OF SCIENTIFIC RESEARCH IN ENGINEERING AND MANAGEMENT}, 2026.
+\bibitem{ref6} Yağanoğlu, "Enhancing Road Accident Severity Prediction via Integrated Feature Engineering and Machine Learning," \textit{International Journal of Intelligent Transportation Systems Research}, 2026.
+\bibitem{ref7} R. Arunachalam et al., "Road Accident Severity Prediction using Machine Learning," \textit{International Journal of Advanced Research in Science, Communication and Technology}, 2023.
+\bibitem{ref8} Khanum et al., "A methodological framework for road accident severity prediction for indian highways using machine learning models," \textit{MethodsX}, 2025.
+\bibitem{ref9} Shawon and Azim, "Advancing Road Safety: Road Accident Severity Prediction Using Deep Learning Models," \textit{2024 IEEE 27th International Conference on Intelligent Transportation Systems (ITSC)}, 2024.
+\bibitem{ref10} Amiri et al., "Machine learning approaches to traffic accident severity prediction: Addressing class imbalance," \textit{Machine Learning with Applications}, 2025.
+\bibitem{ref11} Sujatha et al., "Stacked Ensemble Machine Learning (ML) Framework for Multiclass Road Traffic Accident Severity Prediction," \textit{2026 International Conference on Computer Networks and Inventive Communication Technologies (ICCNCT)}, 2026.
+\bibitem{ref12} Katyayani et al., "Comparison of Machine Learning Algorithms for Road Accident Analysis and Severity Prediction," \textit{2025 International Conference on Artificial intelligence and Emerging Technologies (ICAIET)}, 2025.
+\bibitem{ref13} Ragam et al., "An Intelligent Machine Learning Approach for Prediction of Road Accident Severity," \textit{2025 3rd IEEE International Conference on Industrial Electronics: Developments \\&amp; Applications (ICIDeA)}, 2025.
+\bibitem{ref14} Mahankuda et al., "Road Accident Severity Prediction by Machine Learning Algorithms," \textit{2026 1st International Conference on Emerging Trends in Advancements and Applications of Computational Intelligence Techniques (ETAACT)}, 2026.
+\bibitem{ref15} Garba et al., "ANALYSIS OF SOKOTO STATE ROAD ACCIDENT AND PREDICTION OF ACCIDENT SEVERITY USING MACHINE LEARNING TECHNIQUE," \textit{IARJSET}, 2024.
+\bibitem{ref16} Lata Singh, "Prediction of road accident using machine learning," \textit{Journal of Emerging Technologies and Innovative Research}, 2026.
+\bibitem{ref17} Yu and Chen, "Ensemble learning-based prediction of road traffic accident severity," \textit{International Conference on Smart Transportation and City Engineering (STCE 2024)}, 2025.
+\bibitem{ref18} Srivastava et al., "Road traffic accident severity prediction using causal inference and machine learning," \textit{Proceedings of the 8th International Conference on Data Science and Management of Data (12th ACM IKDD CODS and 30th COMAD)}, 2024.
+\bibitem{ref19} Ratanawimon and Tanawongsuwan, "Prediction of Severity Level of Road Traffic Accident in Thailand using Machine Learning," \textit{World Congress on Electrical Engineering and Computer Systems and Science}, 2024.
+\bibitem{ref20} Lakshmi et al., "A Data-Driven Machine Learning Approach for Road Accident Severity Prediction," \textit{International Journal for Research in Applied Science and Engineering Technology}, 2026.
+\bibitem{ref21} Wang, "Predicting and Analysing Road Accident Severity with Machine learning Models and Resampling," \textit{Transactions on Computer Science and Intelligent Systems Research}, 2024.
+\bibitem{ref22} Sunny et al., "Road Traffic Accident Severity Classification Using Machine Learning," \textit{2025 IEEE 1st International Conference on Recent Trends in Computing and Smart Mobility (RCSM)}, 2025.
+\bibitem{ref23} Zhang et al., "Exploring spatial heterogeneity in factors associated with injury severity in speeding-related crashes: An integrated machine learning and spatial modeling approach," \textit{Accident Analysis \\& Prevention}, 2024.
+\bibitem{ref24} Mynavathi et al., "Machine Learning-based Accident Severity Prediction," \textit{2025 International Conference on Sustainable Communication Networks and Application (ICSCN)}, 2025.
+\bibitem{ref25} Gao et al., "Road traffic accident severity prediction based on large-scale data and multi-dimensional factors: an explainable ensemble learning approach," \textit{Accident Analysis \\& Prevention}, 2026.
+\bibitem{ref26} Simmachan and Boonkrong, "Effect of Resampling Techniques on Machine Learning Models for Classifying Road Accident Severity in Thailand," \textit{Journal of Current Science and Technology}, 2025.
+\bibitem{ref27} Kalyan et al., "Accident Severity Prediction Using Machine Learning
+Techniques," \textit{First International Conference on Computer, Computation and Communication (IC3C-2025)}, 2025.
+\bibitem{ref28} Zhou, "Traffic Accident Severity Prediction Based on Data Cleaning and Machine Learning (Random Forest / Xgboost)," \textit{Highlights in Science, Engineering and Technology}, 2024.
+\bibitem{ref29} Baykal et al., "Accident Severity Prediction in Big Data Using Auto-Machine Learning," \textit{Scientia Iranica}, 2023.
+\bibitem{ref30} Sonvane et al., "Road Traffic Accident Prediction Using Machine Learning Techniques," \textit{Best Journal of Innovation in Science, Research and Development}, 2026.
 \bibitem{kaggle_dataset} A. Lahlou, "Accidents in France from 2005 to 2016," \textit{Kaggle Repository}, 2019. [Online]. Available: https://www.kaggle.com/datasets/ahmedlahlou/accidents-in-france-from-2005-to-2016
+
 \end{thebibliography}
 
 \end{document}
