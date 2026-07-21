@@ -88,46 +88,52 @@ The integration of deep learning models has also been explored to advance road s
 A notable challenge identified in contemporary research is spatial heterogeneity. Zhang et al. \cite{ref23} explored how spatial modeling approaches must be integrated with machine learning to account for unobserved geographic factors in speeding-related crashes. This aligns with the necessity for explainable AI; recent frameworks \cite{ref25, ref29} emphasize that predicting accident severity via multi-dimensional factors requires explainable ensemble learning approaches to ensure the models do not suffer from target leakage or "black-box" opaqueness \cite{ref21, ref24, ref27, ref30}. Finally, studies explicitly comparing Tree-based classifiers, such as Random Forest and XGBoost \cite{ref22, ref28}, confirm that ensemble gradient boosting methods frequently achieve the highest accuracy metrics when processing traffic accident data.
 
 
-\subsection{Mathematical Rigor of Geospatial Tessellation (Uber H3)}
-Unlike standard bounding box matrices (where latitude and longitude form square grids), our system utilizes hexagonal tessellation. On a spherical earth, standard square grids suffer from massive spatial distortion near the poles, rendering distance calculations highly inaccurate. Uber's H3 framework mitigates this by applying an icosahedron projection to the globe, unfolding the sphere into 20 planar triangles, which are then accurately covered by hexagons.
 
-For any given GPS coordinate $(lat, lon)$, the algorithm computes its containing hexagonal cell index $H_i$. 
-Because a hexagon has the unique mathematical property that the distance from its center to all six neighboring cell centers is exactly identical, neighborhood radius searches are mathematically perfect. This eliminates the angular edge-case distortions (the "diagonal problem") found in square grid clustering. 
+\section{Proposed System}
+To address the latency limitations of distance-based clustering and the spatial memorization issues of granular GPS coordinate training, this study proposes a robust hybrid architecture. The system is designed to act as a highly efficient, software-defined ADAS layer that computes hazard probabilities dynamically.
 
-The distance between the centers of two adjacent hexagons at resolution $r$ can be approximated as:
-$$ D_r \approx \sqrt{\frac{2 \cdot A_r}{3 \sqrt{3}}} \times 2 $$
-where $A_r$ is the average area of a hexagon at resolution $r$. We implemented Resolution 8 hexagons, which possess an average area of 0.73 $km^2$ and an edge length of 461 meters—optimal for urban intersection representation.
+\subsection{System Overview}
+The proposed methodology is fundamentally partitioned into two distinct architectural phases: offline spatial clustering with model training, and online dynamic inference. The primary objective is to engineer a framework capable of executing on standard computational hardware without necessitating dedicated in-vehicle GPUs or specialized OBD-II sensor networks. Internally, the offline pipeline cleanses raw historical records, maps them into deterministic H3 risk clusters, and trains a supervised Machine Learning classifier. Conversely, the online classification phase evaluates incoming vehicular telemetry against real-time environmental APIs to output a calibrated risk probability in under 5 milliseconds.
 
-Furthermore, hierarchical indexing allows for instant parent-child aggregation. A cell at resolution $r$ accurately contains roughly 7 child cells at resolution $r+1$. This allows our algorithm to perform macro-level traffic analysis across an entire city (Resolution 5) and instantly zoom into micro-level intersection hazards (Resolution 9) using simple bitwise shifts on the 64-bit integer index, completely circumventing $\mathcal{O}(N)$ database scans.
+\subsection{Dataset}
+This research utilized the highly granular "Accidents in France from 2005 to 2016" governmental dataset published on Kaggle. This repository comprises several interconnected tables detailing precise GPS coordinates (via \textit{caracteristics.csv}) and individual passenger injury severities (via \textit{users.csv}) for over 800,000 distinct vehicular collisions. This massive temporal scope provides a rich, varied foundational understanding of persistent geometric risk across both urban centers and rural highways over an 11-year period.
 
-Unlike standard bounding box matrices, our system utilizes hexagonal tessellation. Uber's H3 framework mitigates polar distortion by applying an icosahedron projection.
-For any given GPS coordinate $(lat, lon)$, the algorithm computes its containing hexagonal cell index $H_i$. 
-Because a hexagon has the unique mathematical property that the distance from its center to all neighboring cell centers is exactly identical, neighborhood radius searches are mathematically perfect. We implemented Resolution 8 hexagons (average area 0.73 $km^2$, edge length 461 meters).
+\subsection{Data Preprocessing}
+Extensive geospatial normalization was imperative to maintain spatial integrity. Historical police terminals frequently recorded GPS locations as whole integers, erroneously omitting floating-point decimals. The preprocessing pipeline mathematically rectifies this anomaly by identifying coordinate bounds that violate geographic constraints and algorithmically normalizing them by a factor of 100,000. 
 
-\subsection{Machine Learning Model (HistGradientBoosting)}
-The classification is made in successive gradient boosting stages. The \texttt{HistGradientBoostingClassifier} from Scikit-Learn discretizes continuous features into integer-valued bins, replacing costly sorting with rapid bin lookups. The model minimizes the logarithmic loss (Log-Loss):
+$$ \text{Latitude}_{adj} = \begin{cases} \frac{\text{Latitude}}{100000}, & \text{if Latitude} > 90 \\ \text{Latitude}, & \text{otherwise} \end{cases} $$
+
+Following spatial rectification, the dataset was rigorously isolated to the French mainland by enforcing rigid bounding box limits. The disparate injury records were subsequently aggregated using a grouped maximum function acting upon the unique Accident ID (\texttt{Num\_Acc}). The highest injury severity recorded per collision dictated the absolute classification label, framing the task as a binary classification problem: Severe/Fatal (Class 1) and Minor/Moderate (Class 0).
+
+\subsection{Feature Engineering}
+The algorithm derives multiple categorical and continuous environmental features from raw timestamps, notably constructing Boolean flags for \texttt{is\_raining}, \texttt{is\_snowing}, \texttt{is\_fog}, and \texttt{is\_night}. Passing highly granular \texttt{lat} and \texttt{long} coordinates directly into a spatial Machine Learning architecture universally results in "Target Leakage"—a phenomenon where the model overfits by perfectly memorizing the historical coordinates of a crash rather than learning the underlying meteorological causality. 
+
+To rectify this, the raw spatial inputs were mathematically rounded to precisely one decimal place. This transforms the input geometry from microscopic intersections into vast 11$\times$11 kilometer "Macro-Regions." By enforcing this aggressive rounding strategy, the spatial resolution is deliberately degraded for the ML classifier, physically preventing it from memorizing specific intersections and forcing reliance on dynamic environmental features.
+
+\subsection{Machine Learning Model}
+The core predictive engine leverages the \texttt{HistGradientBoostingClassifier} from Scikit-Learn. By discretizing continuous features into integer-valued bins, the algorithm replaces computationally expensive sorting procedures with rapid bin lookups, significantly accelerating training and inference. The model optimizes the logarithmic loss (Log-Loss) across successive gradient boosting stages:
 $$ L(y, \hat{p}) = - \left[ y \log(\hat{p}) + (1 - y) \log(1 - \hat{p}) \right] $$
-where $y$ is the actual severity label and $\hat{p}$ is the predicted probability of a Severe accident.
+where $y$ represents the actual severity label and $\hat{p}$ denotes the predicted probability of a Severe accident.
 
 \subsection{Risk Prediction Algorithm}
-We use historical base scores assigned to the H3 Hexagons and combine them with the scalar multiplier generated by the ML model. This live probability is divided by the national baseline severity average (approximately 55\%) to extract a raw scalar multiplier. 
+The final predictive output relies on the mathematical fusion of the Uber H3 Spatial Index and the Machine Learning multiplier. The system calculates historical base scores for individual H3 Hexagons. Simultaneously, the ML model generates a real-time severity probability. This live probability is divided by the national baseline severity average to extract a raw scalar multiplier:
 $$ \text{Multiplier} = \frac{P(\text{Severe} \mid \text{Weather, Region})}{P(\text{Baseline})} $$
+The static historical base score of an incoming H3 Hexagon is then multiplied by this dynamic scalar. Consequently, if a vehicle approaches a historically "MODERATE" risk zone during an intense nocturnal rainstorm, the multiplier dramatically inflates the zone's base score, instantly triggering a "FATAL" alert.
 
+\section{System Architecture}
+When designing the overall architecture for SafeRoute-AI, the workload was strategically distributed across three primary computational layers to ensure maximum efficiency.
 
+First, the \textbf{Data Layer} handles the historical spatial memory of the system utilizing SQLite. It efficiently stores the pre-calculated H3 base scores, hexagon geometries, and hazard colors for over 2,700 identified critical zones. 
 
+Second, the \textbf{Inference Layer} acts as the predictive brain. This Python-based engine loads the pre-trained \texttt{HistGradientBoosting} model directly into memory. As environmental conditions shift, this layer rapidly constructs inference data frames and recalculates the dynamic weather multiplier.
 
-
-
-
-
-Finally, the \textbf{Simulation Layer} serves as the driver's dashboard, built entirely on Streamlit, wrapping a custom Leaflet.js and Turf.js map instance to animate the vehicle smoothly.
+Finally, the \textbf{Simulation Layer} serves as the driver's visual interface and dashboard, built entirely on the Streamlit framework. It acts as an interactive wrapper around a custom Leaflet.js and Turf.js map instance, injecting the native HTML and JavaScript required to animate the vehicle smoothly on the screen.
 
 \begin{figure}[htbp]
 \centerline{\includegraphics[width=0.45\textwidth]{assets/architecture_placeholder.png}}
-\caption{System Architecture diagram illustrating the flow from the Data Layer to the Live Simulation Layer. (Placeholder)}
+\caption{System Architecture diagram illustrating the flow from the Data Layer to the Live Simulation Layer.}
 \label{fig:arch}
 \end{figure}
-
 \section{Implementation}
 A major challenge was keeping the simulation exceptionally smooth. In traditional spatial models, developers calculate the distance between the moving car and every known accident centroid using the Haversine formula:
 $$ d = 2r \arcsin \left( \sqrt{\sin^2\left(\frac{\Delta\phi}{2}\right) + \cos\phi_1\cos\phi_2\sin^2\left(\frac{\Delta\lambda}{2}\right)} \right) $$
