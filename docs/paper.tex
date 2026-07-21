@@ -148,7 +148,7 @@ Second, the \textbf{Inference Layer} acts as the brain. This Python-based engine
 Finally, the \textbf{Simulation Layer} serves as the driver's dashboard, built entirely on Streamlit, wrapping a custom Leaflet.js and Turf.js map instance to animate the vehicle smoothly.
 
 \begin{figure}[htbp]
-\centerline{\includegraphics[width=0.45\textwidth]{../assets/architecture_placeholder.png}}
+\centerline{\includegraphics[width=0.45\textwidth]{assets/architecture_placeholder.png}}
 \caption{System Architecture diagram illustrating the flow from the Data Layer to the Live Simulation Layer. (Placeholder)}
 \label{fig:arch}
 \end{figure}
@@ -169,7 +169,7 @@ We tested the system using a 20\% validation split from our French accident data
 We achieved an ROC-AUC score of 79.5\%. This proves our "Macro-Regions" technique successfully stopped the model from cheating via target leakage. 
 
 \begin{figure}[htbp]
-\centerline{\includegraphics[width=0.45\textwidth]{../assets/roc_curve.png}}
+\centerline{\includegraphics[width=0.45\textwidth]{assets/roc_curve.png}}
 \caption{ROC-AUC Curve displaying the 79.5\% accuracy of the HistGradientBoosting Model.}
 \label{fig:roc}
 \end{figure}
@@ -177,7 +177,7 @@ We achieved an ROC-AUC score of 79.5\%. This proves our "Macro-Regions" techniqu
 The confusion matrix revealed strong True Positive (TP) sensitivity when classifying environments known for fatal crashes.
 
 \begin{figure}[htbp]
-\centerline{\includegraphics[width=0.45\textwidth]{../assets/confusion_matrix.png}}
+\centerline{\includegraphics[width=0.45\textwidth]{assets/confusion_matrix.png}}
 \caption{Confusion Matrix highlighting the classification density between Severe (1) and Moderate (0) accidents.}
 \label{fig:conf_matrix}
 \end{figure}
@@ -186,7 +186,7 @@ The confusion matrix revealed strong True Positive (TP) sensitivity when classif
 A Permutation Feature Importance test demonstrated that environmental conditions (\texttt{is\_raining}, \texttt{is\_night}, \texttt{hour}) carried heavy predictive weight alongside macro-region identifiers. Without rounding, the model assigned over 95\% of its predictive weight to raw GPS coordinates, ignoring weather entirely.
 
 \begin{figure}[htbp]
-\centerline{\includegraphics[width=0.45\textwidth]{../assets/feature_importance.png}}
+\centerline{\includegraphics[width=0.45\textwidth]{assets/feature_importance.png}}
 \caption{Permutation Feature Importance highlighting the predictive value of environmental factors.}
 \label{fig:feature_imp}
 \end{figure}
