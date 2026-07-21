@@ -1,0 +1,76 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Comprehensive Machine Learning and Geospatial Clustering Approach for Real-Time Dynamic Road Accident Risk Zone Detection and ADAS Alerting}
+
+\author{\IEEEauthorblockN{Navadeep}
+\IEEEauthorblockA{\textit{Department of AI} \\
+\textit{Anurag University}\\
+Hyderabad, India \\
+navadeep@example.com}
+\and
+\IEEEauthorblockN{Inderneel}
+\IEEEauthorblockA{\textit{Department of AI} \\
+\textit{Anurag University}\\
+Hyderabad, India \\
+inderneel@example.com}
+\and
+\IEEEauthorblockN{Rithik Teja}
+\IEEEauthorblockA{\textit{Department of AI} \\
+\textit{Anurag University}\\
+Hyderabad, India \\
+rithik@example.com}
+\and
+\IEEEauthorblockN{Shanmukh}
+\IEEEauthorblockA{\textit{Department of AI} \\
+\textit{Anurag University}\\
+Hyderabad, India \\
+shanmukh@example.com}
+\and
+\IEEEauthorblockN{Dr./Mr. Ravi Krishna}
+\IEEEauthorblockA{\textit{Guide, Department of AI} \\
+\textit{Anurag University}\\
+Hyderabad, India \\
+ravikrishna@example.com}
+}
+
+\maketitle
+
+\begin{abstract}
+Precautionary measures for safety on roads and traffic have become key roles played by traffic regulations and management worldwide. Despite significant advancements in vehicular safety engineering—such as anti-lock braking systems (ABS), electronic stability control (ESC), and autonomous emergency braking (AEB)—road accidents remain one of the leading causes of preventable mortality. It has been widely observed that modern navigation systems are highly optimized for routing efficiency rather than proactive safety. In such a scenario, several aspects have been taken into account, resulting in the current project, which consists of a technique where any high-risk road stretch can be dynamically detected and drivers can be proactively alerted before entering the hazard zone. In this project, accident zone detection and real-time risk recognition have been deployed mainly using spatial hashing algorithms such as Uber’s Hexagonal Hierarchical Spatial Index (H3) and the HistGradientBoosting Machine Learning Classifier. Any kind of road hazard can be detected and recognized under several environmental conditions and cases. Whenever a vehicle approaches a historically dangerous intersection, the instance of such danger is considered, and the output is built by analyzing live weather and time-of-day data against 15 years of historical accident records. The trained model gives an accurate severity prediction result at an ROC-AUC rate of 79.5\% under multiple cases, operating at an exceptionally low latency of ~5 milliseconds, making it highly suitable for Real-Time Advanced Driver Assistance Systems (ADAS).
+\end{abstract}
+
+\begin{IEEEkeywords}
+Advanced Driver Assistance Systems (ADAS), HistGradientBoosting, Geospatial Clustering, Uber H3 Spatial Index, Target Leakage, Real-Time Navigation, Machine Learning.
+\end{IEEEkeywords}
+
+\section{Introduction}
+Accident often occurs at the rate of negligence of the driver or due to unforeseen and suddenly changing environmental conditions. This can be controlled by monitoring the route and proactively warning drivers before they encounter complex, historically dangerous intersections. Road accidents cause severe damage to life and property, and this will be avoided to a major extent by dynamically alerting drivers to reduce their speed or increase their situational awareness. Various methods and techniques are currently in use to test whether road users are following security measures or to identify "black-spots" (historically dangerous intersections). One amongst these is the application of static density-based spatial clustering. The traffic police and urban planning departments use many methods to overcome the above problem, such as plotting density heatmaps of historical crash data, but the result is not satisfactory as it is not well ordered and remains entirely static. Hence, a more structured, dynamic description is necessary with technological advancements, resulting in the current project. 
+
+The current system used by most municipal traffic boards uses static clustering algorithms (like K-Means or DBSCAN) that have a few severe limitations. Strong spatial constraints are imposed by static black-spot mapping; it assumes that an intersection is uniformly dangerous at all times. Our model is often hindered by the reality that an intersection may be perfectly safe on a clear, sunny day, but becomes highly lethal during nocturnal rain or dense fog. As the model is instructed to conclude safety solely from historical frequency, it is hard to understand that the objects (accidents) occur in different contexts. It also uses considerably rough features to anticipate danger because traditional architectures have several down-model layers that fail to incorporate real-time APIs (such as OpenWeatherMap). Lastly, traditional spatial Machine Learning models often teach on a loss function that relies heavily on exact GPS coordinates, leading to "Target Leakage" where the model memorizes exact intersections rather than learning the underlying environmental causality.
+
+In order to overcome the hindrances caused by the selection of enormous numbers of geographical regions, a substitute method is proposed in this paper using Uber’s H3 Hexagonal Hierarchical Spatial Index fused with a HistGradientBoosting Machine Learning classifier. In this method, the map is mathematically tessellated into hexagons (at Resolution 8, approximately 0.73 square kilometers each) instead of using selective search or traditional coordinate bounding boxes. Hence, the classification process from the former bulk number of raw GPS points (over 220,000 historical records from the French governmental dataset spanning 2005 to 2016) is deducted as we can classify hazards using string hash lookups. However, raw clustering fails to yield dynamic results, resulting in the need for a supervised Machine Learning layer, wherein the process includes a dynamic feature map in the place of regional dividing. This algorithm, which is developed by our team, fuses the static baseline risk with a dynamic multiplier calculated from real-time weather and lighting conditions.
+
+According to our research, HistGradientBoosting is exceptionally suited for tabular environmental data, specifically due to its native handling of missing variables and its high execution speed on large-scale datasets. We have seen a drastic decrease in alert latency and an increase in prediction accuracy (ROC-AUC) by engineering "Macro-Regions" to combat Target Leakage. There are several advantages achieved by using this combinatorial approach. We proved that over 2,700 critical hazard zones can be actively monitored simultaneously. In our paper, we have used Scikit-Learn’s HistGradientBoosting for the further implication of the process. The algorithm scores an accuracy (ROC-AUC) of 79.5\%. It mostly prefers using macro-level environmental features to produce highly calibrated probability outputs. In the current paper, we have used this hybrid H3-ML algorithm for real-time risk zone detection and alerting within a custom-built Streamlit-based Digital Twin ADAS simulator.
+
+% FUTURE SECTIONS WILL GO HERE
+% \section{Literature Review}
+% \section{Proposed System}
+% \section{System Architecture}
+% \section{Implementation}
+% \section{Experimental Results}
+% \section{Discussion}
+% \section{Conclusion}
+
+\end{document}
