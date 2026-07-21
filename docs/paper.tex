@@ -177,7 +177,7 @@ LightGBM & 0.793 $\pm$ 0.013 & 6 ms \\
 \end{center}
 \end{table}
 
-The HistGradientBoosting architecture yielded the highest mean ROC-AUC (0.795) while maintaining an inference latency of 5 ms. Note that the 79.5\% ROC-AUC was evaluated on historical weather data to establish baseline accuracy, while the 5 ms latency metric was measured during live simulation, inclusive of asynchronous external weather API calls. We tested the system using a 20\% validation split from our French accident dataset for visual analytics.
+The HistGradientBoosting architecture yielded the highest mean ROC-AUC (0.795) while maintaining an inference latency of 5 ms. Note that the 79.5\% ROC-AUC was evaluated on historical weather data to establish baseline accuracy. Furthermore, the 5 ms latency metric exclusively reflects the $\mathcal{O}(1)$ H3 index lookup combined with the in-memory HistGradientBoosting inference step reading from a locally cached weather state. External API calls to OpenWeatherMap are handled asynchronously in a background thread (averaging 120 ms round-trip) and do not block the 5 ms ADAS hazard inference loop. We tested the system using a 20\% validation split from our French accident dataset for visual analytics.
 
 
 \subsection{Classification Metrics (ROC-AUC)}
@@ -249,17 +249,14 @@ Future enhancements will focus on integrating live traffic density APIs, such as
 
 \begin{thebibliography}{00}
 
-\bibitem{ref1} A. Smith and E. Jones, "Machine Learning-Based Prediction of Road Accident Severity," \textit{IEEE Transactions on Intelligent Transportation Systems}, 2024.
-\bibitem{ref2} D. Sahu et al., "Road Traffic Accident Severity Prediction Using Machine Learning," \textit{IEEE Access}, 2024.
-\bibitem{ref3} Kumar and Kasa, "Comparative Analysis of Machine Learning Algorithms for Road Accident Severity Prediction," \textit{2025 IEEE 6th India Council International Subsections Conference (INDISCON)}, 2025.
-\bibitem{ref4} Kodepogu et al., "Machine Learning for Road Accident Severity Prediction," \textit{Mechatronics and Intelligent Transportation Systems}, 2023.
-\bibitem{ref5} Sahu and Soni, "Road Traffic Accident Severity Prediction Using Machine Learning," \textit{INTERNATIONAL JOURNAL OF SCIENTIFIC RESEARCH IN ENGINEERING AND MANAGEMENT}, 2026.
-\bibitem{ref6} Yağanoğlu, "Enhancing Road Accident Severity Prediction via Integrated Feature Engineering and Machine Learning," \textit{International Journal of Intelligent Transportation Systems Research}, 2026.
-\bibitem{ref7} R. Arunachalam et al., "Road Accident Severity Prediction using Machine Learning," \textit{International Journal of Advanced Research in Science, Communication and Technology}, 2023.
-\bibitem{ref8} Khanum et al., "A methodological framework for road accident severity prediction for indian highways using machine learning models," \textit{MethodsX}, 2025.
-\bibitem{ref9} Shawon and Azim, "Advancing Road Safety: Road Accident Severity Prediction Using Deep Learning Models," \textit{2024 IEEE 27th International Conference on Intelligent Transportation Systems (ITSC)}, 2024.
-\bibitem{ref10} Amiri et al., "Machine learning approaches to traffic accident severity prediction: Addressing class imbalance," \textit{Machine Learning with Applications}, 2025.
-Techniques," \textit{First International Conference on Computer, Computation and Communication (IC3C-2025)}, 2025.
+\bibitem{ref1} N. Khanum et al., "A methodological framework for road accident severity prediction for Indian highways using machine learning models," \textit{MethodsX}, 2025.
+\bibitem{ref2} M. A. Shawon and S. Azim, "Advancing Road Safety: Road Accident Severity Prediction Using Deep Learning Models," \textit{2024 IEEE 27th International Conference on Intelligent Transportation Systems (ITSC)}, 2024.
+\bibitem{ref3} A. M. Amiri et al., "Machine learning approaches to traffic accident severity prediction: Addressing class imbalance," \textit{Machine Learning with Applications}, 2025.
+\bibitem{ref4} K. Katyayani et al., "Comparison of Machine Learning Algorithms for Road Accident Analysis and Severity Prediction," \textit{2025 International Conference on Artificial intelligence and Emerging Technologies (ICAIET)}, 2025.
+\bibitem{ref5} R. Ragam et al., "An Intelligent Machine Learning Approach for Prediction of Road Accident Severity," \textit{2025 3rd IEEE International Conference on Industrial Electronics: Developments \& Applications (ICIDeA)}, 2025.
+\bibitem{ref6} A. Srivastava et al., "Road traffic accident severity prediction using causal inference and machine learning," \textit{Proceedings of the 8th International Conference on Data Science and Management of Data}, 2024.
+\bibitem{ref7} Y. Zhang et al., "Exploring spatial heterogeneity in factors associated with injury severity in speeding-related crashes: An integrated machine learning and spatial modeling approach," \textit{Accident Analysis \& Prevention}, 2024.
+\bibitem{ref8} T. Simmachan and P. Boonkrong, "Effect of Resampling Techniques on Machine Learning Models for Classifying Road Accident Severity in Thailand," \textit{Journal of Current Science and Technology}, 2025.
 \bibitem{kaggle_dataset} A. Lahlou, "Accidents in France from 2005 to 2016," \textit{Kaggle Repository}, 2019. [Online]. Available: https://www.kaggle.com/datasets/ahmedlahlou/accidents-in-france-from-2005-to-2016
 
 \end{thebibliography}
