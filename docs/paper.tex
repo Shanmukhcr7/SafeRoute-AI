@@ -60,7 +60,7 @@ Road accidents often occur due to driver negligence or suddenly changing environ
 
 The current system used by most municipal traffic boards uses static clustering algorithms (like K-Means or DBSCAN) that have severe limitations. Strong spatial constraints are imposed by static black-spot mapping; it assumes an intersection is uniformly dangerous at all times. Our model is often hindered by the reality that an intersection may be accurately safe on a clear day, but highly lethal during nocturnal rain. Furthermore, recent research (2024) indicates that spatial data sparsity and "Target Leakage"—where models memorize exact coordinates rather than learning underlying causality—plague modern predictive frameworks \cite{wang2024calibrated}. 
 
-To overcome the hindrances caused by the selection of enormous numbers of geographical regions, a substitute method is proposed using Uber's H3 Hexagonal Hierarchical Spatial Index fused with a HistGradientBoosting Machine Learning classifier. In this method, the map is mathematically tessellated into hexagons instead of using traditional coordinate bounding boxes. Hence, the classification process from over 220,000 historical records from the French governmental dataset spanning 2005 to 2016 is deducted as we can classify hazards using string hash lookups. This raw clustering is augmented by a supervised Machine Learning layer, which fuses the static baseline risk with a dynamic multiplier calculated from real-time weather and lighting conditions.
+To overcome the hindrances caused by the selection of enormous numbers of geographical regions, a substitute method is proposed using Uber's H3 Hexagonal Hierarchical Spatial Index fused with a HistGradientBoosting Machine Learning classifier. In this method, the map is mathematically tessellated into hexagons instead of using traditional coordinate bounding boxes. Hence, the classification process from over 220,000 historical records from the French governmental dataset spanning 2005 to 2016 is accelerated as we can classify hazards through string hash lookups. This raw clustering is augmented by a supervised Machine Learning layer, which fuses the static baseline risk with a dynamic multiplier calculated from real-time weather and lighting conditions.
 
 According to our research and recent 2025 literature \cite{chen2025semantic}, Gradient Boosting frameworks are exceptionally suited for tabular environmental data due to their native handling of missing variables and high execution speed. By engineering ``Macro-Regions,'' we substantially decrease alert latency and increase prediction accuracy (ROC-AUC) while combating Target Leakage. Experimental results indicate that over 2,700 critical hazard zones can be actively monitored simultaneously. The algorithm scores an accuracy (ROC-AUC) of 79.5\%. In this paper, we deploy this hybrid H3-ML algorithm within a custom-built Streamlit-based Digital Twin ADAS simulator.
 
@@ -148,13 +148,13 @@ A major challenge was keeping the simulation exceptionally smooth. In traditiona
 $$ d = 2r \arcsin \left( \sqrt{\sin^2\left(\frac{\Delta\phi}{2}\right) + \cos\phi_1\cos\phi_2\sin^2\left(\frac{\Delta\lambda}{2}\right)} \right) $$
 Executing this 60 times a second causes severe CPU lag. 
 
-By implementing Uber's H3 framework, we convert the car's current GPS coordinate into an H3 string hash (\texttt{88184c...}) and perform a direct database lookup. This instantaneously drops our computational overhead to nearly zero ($\mathcal{O}(1)$ time complexity).
+By implementing Uber's H3 framework, we convert the car's current GPS coordinate into an H3 string hash (\texttt{88184c...}) and perform a direct database lookup. This instantaneously drastically reduces spatial querying to a constant-time H3 index lookup.
 
 For visual simulation, we utilized Turf.js to mathematically interpolate the route geometry. As the vehicle moves, the JavaScript continuously calculates the true-north bearing of the road, rotating the car. We implemented a "500-meter lookahead radar" that scans upcoming geometry for FATAL or CRITICAL zones.
 
 \section{Experimental Results}
 \subsection{Hardware and Hyperparameters}
-Experiments were conducted on a workstation equipped with 16 GB RAM, an Intel i7 processor, and an NVIDIA T4 GPU. The framework was implemented using Python 3.10 and Scikit-Learn 1.3. Key hyperparameters for the HistGradientBoosting model were determined via grid search: \texttt{learning\_rate = 0.1}, \texttt{max\_depth = 10}, \texttt{max\_iter = 200}, and \texttt{l2\_regularization = 0.5}.
+Experiments were conducted on a Google Colab cloud environment utilizing an NVIDIA T4 GPU and 16 GB of allocated RAM. The framework was implemented using Python 3.10 and Scikit-Learn 1.3. Key hyperparameters for the HistGradientBoosting model were determined via grid search: \texttt{learning\_rate = 0.1}, \texttt{max\_depth = 10}, \texttt{max\_iter = 200}, and \texttt{l2\_regularization = 0.5}.
 
 \subsection{Cross-Validation and Baseline Comparisons}
 To ensure statistical significance, the model was evaluated using 5-fold stratified cross-validation on an 80/20 train-test split. The proposed method was benchmarked against standard industry algorithms. 
@@ -236,9 +236,12 @@ The most satisfying breakthrough was solving the target leakage problem. In earl
 \section{Limitations}
 While the proposed system reduces inference latency and mitigates spatial memorization, several limitations exist. First, rural regions suffer from severe historical data sparsity, resulting in disproportionately low baseline scores compared to urban centers. Second, the reliance on external weather APIs introduces network dependency; API timeouts could default the system to static baselines, temporarily negating the dynamic multiplier.
 
+\subsection{Reproducibility}
+All preprocessing scripts, trained models, and Streamlit implementation were developed in Python using Scikit-Learn. The implementation can be reproduced using the public France Accident dataset and the hyperparameters explicitly listed in Section V.
+
 \section{Conclusion}
 
-We successfully designed and developed SafeRoute-AI, a highly dynamic, real-time alert system. By stepping away from heavy, hardware-dependent telematics and computationally expensive clustering, we proved that Uber's H3 spatial indexing combined with Machine Learning can deliver proactive safety alerts instantly and affordably. With an impressive predictive accuracy of nearly 80\% and a response time of just 5ms, SafeRoute-AI can theoretically be integrated into any modern smartphone navigation app or vehicular dashboard with minimal overhead.
+We successfully designed and developed SafeRoute-AI, a highly dynamic, real-time alert system. By stepping away from heavy, hardware-dependent telematics and computationally expensive clustering, the experimental results demonstrate that Uber's H3 spatial indexing combined with Machine Learning can deliver proactive safety alerts instantly and affordably. With an impressive predictive accuracy of nearly 80\% and a response time of just 5ms, SafeRoute-AI can theoretically be integrated into any modern smartphone navigation app or vehicular dashboard with minimal overhead.
 
 \section*{Future Work}
 Future enhancements will focus on integrating live traffic density APIs, such as Google Maps Traffic, to append vehicular congestion as a real-time ML feature. We also plan to implement an audio-based Human-Machine Interface (HMI) using Text-To-Speech engines to physically speak the warnings, substantially reducing screen distraction.
