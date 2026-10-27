@@ -4,8 +4,17 @@ import numpy as np
 from pathlib import Path
 
 class DynamicRiskPredictor:
-    def __init__(self, model_path="models/dynamic_risk_model.pkl"):
-        self.model_path = Path(model_path)
+    def __init__(self, model_path=None):
+        if model_path is None:
+            candidates = [
+                Path(__file__).resolve().parent.parent / "models" / "dynamic_risk_model.pkl",
+                Path("models/dynamic_risk_model.pkl"),
+                Path("road-risk-ai/models/dynamic_risk_model.pkl"),
+            ]
+            self.model_path = next((c for c in candidates if c.exists()), Path("models/dynamic_risk_model.pkl"))
+        else:
+            self.model_path = Path(model_path)
+            
         self.model = None
         if self.model_path.exists():
             self.model = joblib.load(self.model_path)

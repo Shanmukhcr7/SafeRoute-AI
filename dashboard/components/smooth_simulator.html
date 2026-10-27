@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; padding: 0; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
         .car-icon {
             font-size: 24px;
@@ -15,21 +15,138 @@
             transition: transform 0.1s linear;
         }
         .custom-popup .leaflet-popup-content-wrapper {
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(17, 24, 39, 0.95);
             color: white;
             border-radius: 8px;
-            padding: 5px;
-            border: 1px solid #444;
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
         .custom-popup .leaflet-popup-tip {
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(17, 24, 39, 0.95);
         }
-        .alert-red { color: #ff4444; font-weight: bold; }
-        .alert-orange { color: #ffaa00; font-weight: bold; }
+        .alert-red { color: #ef4444; font-weight: bold; font-size: 13px; }
+        .alert-orange { color: #f97316; font-weight: bold; font-size: 13px; }
+        
+        /* Centroid Hotspot Warning Badge */
+        .hotspot-badge {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            cursor: pointer;
+            animation: pulse-ring 2.2s infinite;
+        }
+        .hotspot-badge.fatal { background: #dc2626; color: #fff; border: 2px solid #fff; }
+        .hotspot-badge.critical { background: #ef4444; color: #fff; border: 2px solid #fff; }
+        .hotspot-badge.high { background: #f97316; color: #fff; border: 2px solid #fff; }
+        .hotspot-badge.moderate { background: #fbbf24; color: #111; border: 1.5px solid #fff; }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1.15); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        /* HUD Overlay Panel */
+        .hud-panel {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            z-index: 1000;
+            background: rgba(17, 24, 39, 0.92);
+            backdrop-filter: blur(8px);
+            color: #f3f4f6;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            min-width: 200px;
+        }
+        .hud-title {
+            font-weight: 700;
+            font-size: 13px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: #fff;
+        }
+        .hud-badge {
+            background: #ef4444;
+            color: #fff;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .hud-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 3px;
+            font-size: 11px;
+            color: #d1d5db;
+        }
+        .hud-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .hud-btn-group {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        .hud-btn {
+            flex: 1;
+            background: #374151;
+            color: #f3f4f6;
+            border: 1px solid #4b5563;
+            border-radius: 6px;
+            padding: 5px 8px;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s ease;
+        }
+        .hud-btn:hover {
+            background: #4b5563;
+            color: #fff;
+        }
+        .hud-btn.active {
+            background: #2563eb;
+            border-color: #3b82f6;
+            color: #fff;
+        }
     </style>
 </head>
 <body>
 <div id="map"></div>
+
+<!-- Interactive HUD -->
+<div class="hud-panel">
+    <div class="hud-title">
+        <span>🎯 AI Accident Hotspots</span>
+        <span class="hud-badge" id="hotspot-count">0</span>
+    </div>
+    <div class="hud-legend-item"><span class="hud-legend-dot" style="background:#dc2626;"></span> <b>Fatal (80–100)</b></div>
+    <div class="hud-legend-item"><span class="hud-legend-dot" style="background:#ef4444;"></span> <b>Critical (65–79)</b></div>
+    <div class="hud-legend-item"><span class="hud-legend-dot" style="background:#f97316;"></span> <b>High (45–64)</b></div>
+    <div class="hud-legend-item"><span class="hud-legend-dot" style="background:#fbbf24;"></span> <b>Moderate (25–44)</b></div>
+    
+    <div class="hud-btn-group">
+        <button class="hud-btn" id="btn-full-route" onclick="showFullRoute()">🌍 Full Route</button>
+        <button class="hud-btn active" id="btn-track" onclick="toggleTracking()">🚘 Follow Car</button>
+    </div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- Include turf.js for fast collision detection -->
@@ -40,9 +157,12 @@
     const routeGeometry = __ROUTE_GEOMETRY__; // Array of [lon, lat]
     const riskZones = __RISK_ZONES__; // Array of { polygon: [[lon,lat]...], color: "...", level: "...", score: 95 }
     
+    // Update badge count
+    document.getElementById('hotspot-count').innerText = riskZones.length;
+
     // Initialize map
     const startCoord = [routeGeometry[0][1], routeGeometry[0][0]];
-    const map = L.map('map', { zoomControl: false }).setView(startCoord, 13);
+    const map = L.map('map', { zoomControl: true }).setView(startCoord, 13);
     
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -51,23 +171,109 @@
 
     // Draw route
     const latlngs = routeGeometry.map(p => [p[1], p[0]]);
-    const path = L.polyline(latlngs, {color: '#00aaff', weight: 4, opacity: 0.8}).addTo(map);
-    map.fitBounds(path.getBounds());
+    const path = L.polyline(latlngs, {color: '#00aaff', weight: 4.5, opacity: 0.85}).addTo(map);
+    
+    // Fit full route initially so user sees the big picture
+    map.fitBounds(path.getBounds().pad(0.08));
 
-    // Draw risk zones
+    let followCar = false; // Start with overview, switches to true when user or auto-follow engages
+    setTimeout(() => { followCar = true; }, 3000); // After 3 seconds of overview, auto-zoom to car
+
+    function showFullRoute() {
+        followCar = false;
+        document.getElementById('btn-track').classList.remove('active');
+        document.getElementById('btn-full-route').classList.add('active');
+        map.fitBounds(path.getBounds().pad(0.08));
+    }
+
+    function toggleTracking() {
+        followCar = !followCar;
+        if (followCar) {
+            document.getElementById('btn-track').classList.add('active');
+            document.getElementById('btn-full-route').classList.remove('active');
+            if (carMarker) {
+                map.setView(carMarker.getLatLng(), 13);
+            }
+        } else {
+            document.getElementById('btn-track').classList.remove('active');
+        }
+    }
+
+    // Draw risk zones with high visibility
     const zonePolygons = [];
     riskZones.forEach(zone => {
         const polyLatLngs = zone.polygon.map(p => [p[1], p[0]]);
+        
+        let strokeColor = '#f59e0b';
+        let fillColor = '#fbbf24';
+        let fillOpacity = 0.5;
+        let badgeClass = 'moderate';
+        
+        if (zone.level === 'FATAL') {
+            strokeColor = '#7f1d1d';
+            fillColor = '#dc2626';
+            fillOpacity = 0.65;
+            badgeClass = 'fatal';
+        } else if (zone.level === 'CRITICAL') {
+            strokeColor = '#991b1b';
+            fillColor = '#ef4444';
+            fillOpacity = 0.6;
+            badgeClass = 'critical';
+        } else if (zone.level === 'HIGH') {
+            strokeColor = '#c2410c';
+            fillColor = '#f97316';
+            fillOpacity = 0.55;
+            badgeClass = 'high';
+        }
+        
         const leafletPoly = L.polygon(polyLatLngs, {
-            color: zone.color,
-            fillOpacity: 0.4,
-            weight: 0, // Removed stroke to fix fading line artifacts
-            stroke: false
+            color: strokeColor,
+            weight: 2.5,
+            opacity: 0.9,
+            fillColor: fillColor,
+            fillOpacity: fillOpacity
         }).addTo(map);
+
+        const multiplierText = zone.multiplier ? `<b>Weather Multiplier:</b> ${zone.multiplier.toFixed(2)}x<br/>` : '';
+        const baseScoreText = zone.base_score ? `<b>Base Risk:</b> ${zone.base_score.toFixed(1)}<br/>` : '';
+
+        leafletPoly.bindTooltip(`
+            <div style="font-family:sans-serif; font-size:12px; line-height:1.4;">
+                <b style="color:${strokeColor}">⚠️ ${zone.level} ACCIDENT HOTSPOT</b><br/>
+                <b>Dynamic AI Risk:</b> ${zone.score.toFixed(1)} / 100<br/>
+                ${baseScoreText}${multiplierText}
+                <b>Advisory:</b> Caution Required
+            </div>
+        `, {sticky: true});
+
+        // Add warning marker badge at centroid for High/Critical/Fatal hotspots
+        if (zone.level === 'FATAL' || zone.level === 'CRITICAL' || zone.level === 'HIGH') {
+            try {
+                const closedRing = zone.polygon.concat([zone.polygon[0]]);
+                const centroid = turf.centroid(turf.polygon([closedRing])).geometry.coordinates;
+                const badgeIcon = L.divIcon({
+                    html: `<div class="hotspot-badge ${badgeClass}" title="${zone.level} Risk Hotspot">⚠️</div>`,
+                    className: '',
+                    iconSize: [22, 22],
+                    iconAnchor: [11, 11]
+                });
+                const marker = L.marker([centroid[1], centroid[0]], {icon: badgeIcon}).addTo(map);
+                marker.bindPopup(`
+                    <div style="font-family:sans-serif; font-size:12px; line-height:1.4;">
+                        <b style="color:${strokeColor}; font-size:13px;">⚠️ ${zone.level} ACCIDENT HOTSPOT</b><br/>
+                        <b>AI Dynamic Risk:</b> ${zone.score.toFixed(1)} / 100<br/>
+                        ${baseScoreText}${multiplierText}
+                        <b>Status:</b> High Accident Density Zone
+                    </div>
+                `);
+            } catch (e) {
+                console.error("Centroid error", e);
+            }
+        }
         
         // Save turf polygon for collision
         zonePolygons.push({
-            turfPoly: turf.polygon([zone.polygon.concat([zone.polygon[0]])]), // turf expects closed ring
+            turfPoly: turf.polygon([zone.polygon.concat([zone.polygon[0]])]),
             data: zone
         });
     });
@@ -98,7 +304,7 @@
 
     // Animation Variables
     let currentDistance = 0; // km
-    let simulatedSpeedKmh = 300; // Simulated speed (much faster than real-time so the demo finishes, but smooth)
+    let simulatedSpeedKmh = 250; // Smooth demo speed
     let lastTime = null;
     let activeAlert = null;
 
@@ -127,15 +333,16 @@
             const bearing = turf.bearing(turf.point(currentPt), turf.point(nextPt));
             const carDiv = document.getElementById('car-div');
             if (carDiv) {
-                // Top-down SVG points UP (0 deg natively). So rotation == bearing.
                 carDiv.style.transform = `rotate(${bearing}deg)`;
             }
         }
         
         carMarker.setLatLng([lat, lon]);
 
-        // Perfect camera tracking without fighting the user's scroll zoom
-        map.panTo([lat, lon], {animate: false});
+        // Camera tracking if followCar is active
+        if (followCar) {
+            map.panTo([lat, lon], {animate: false});
+        }
 
         // 500m Lookahead Collision detection
         let checkDistance = Math.min(currentDistance + 0.5, totalDistance);
@@ -157,9 +364,9 @@
                 const speedLimit = hitZone.level === "FATAL" ? 30 : (hitZone.level === "CRITICAL" ? 50 : 70);
                 const content = `
                     <div style="text-align:center;">
-                        <div class="${alertClass}">⚠ ${hitZone.level} RISK 500m AHEAD</div>
-                        <div style="font-size:12px; margin-top:4px;">Risk Score: ${hitZone.score.toFixed(1)}</div>
-                        <div style="font-size:12px;">AI REC: Reduce speed to ${speedLimit}km/h</div>
+                        <div class="${alertClass}">⚠️ ${hitZone.level} RISK 500m AHEAD</div>
+                        <div style="font-size:12px; margin-top:4px;">Risk Score: ${hitZone.score.toFixed(1)} / 100</div>
+                        <div style="font-size:12px; color:#60a5fa;">AI REC: Reduce speed to ${speedLimit} km/h</div>
                     </div>
                 `;
                 popup.setContent(content);
@@ -179,7 +386,7 @@
     // Start animation shortly after load
     setTimeout(() => {
         requestAnimationFrame(animate);
-    }, 1000);
+    }, 1200);
 
 </script>
 </body>

@@ -5,8 +5,17 @@ from pathlib import Path
 from adas.ml_predictor import DynamicRiskPredictor
 
 class RouteAnalyzer:
-    def __init__(self, db_path="database/road_risk.db"):
-        self.db_path = Path(db_path)
+    def __init__(self, db_path=None):
+        if db_path is None:
+            candidates = [
+                Path(__file__).resolve().parent.parent / "database" / "road_risk.db",
+                Path("database/road_risk.db"),
+                Path("road-risk-ai/database/road_risk.db"),
+            ]
+            self.db_path = next((c for c in candidates if c.exists()), Path("database/road_risk.db"))
+        else:
+            self.db_path = Path(db_path)
+            
         self.risk_zones = self._load_risk_zones()
         self.ml = DynamicRiskPredictor()
         
@@ -30,11 +39,15 @@ class RouteAnalyzer:
         """
         print(f"Analyzing route dynamically for {weather} at {time_of_day}...")
         passed_zones = set()
-        for i in range(0, len(route_geometry), 3): 
+        for i in range(0, len(route_geometry), 2): 
             pt = route_geometry[i]
             h3_idx = h3.latlng_to_cell(pt[1], pt[0], 8) 
             if h3_idx in self.risk_zones:
                 passed_zones.add(h3_idx)
+            # Include corridor neighbors with historical risk
+            for neighbor in h3.grid_disk(h3_idx, 1):
+                if neighbor in self.risk_zones and self.risk_zones[neighbor]["score"] >= 30:
+                    passed_zones.add(neighbor)
                 
         # Calculate dynamic score using ML model
         total_dynamic_score = 0
@@ -55,24 +68,29 @@ class RouteAnalyzer:
             dynamic_score = min(base_score * multiplier, 100.0)
             
             # Recalculate level based on new score
-            if dynamic_score > 90: 
+            if dynamic_score >= 80: 
                 level = "FATAL"
-                dyn_color = "#000000"
-            elif dynamic_score > 75: 
+                dyn_color = "#DC2626"
+            elif dynamic_score >= 65: 
                 level = "CRITICAL"
-                dyn_color = "#FF0000"
-            elif dynamic_score > 50: 
+                dyn_color = "#EF4444"
+            elif dynamic_score >= 45: 
                 level = "HIGH"
-                dyn_color = "#FFA500"
-            else: 
+                dyn_color = "#F97316"
+            elif dynamic_score >= 25: 
                 level = "MODERATE"
-                dyn_color = "#FFFF00"
+                dyn_color = "#FBBF24"
+            else: 
+                level = "LOW"
+                dyn_color = "#10B981"
             
             if level in ["CRITICAL", "FATAL"]:
                 critical_count += 1
                 
             dynamic_zones[z] = {
                 "score": dynamic_score,
+                "base_score": base_score,
+                "multiplier": multiplier,
                 "level": level,
                 "color": dyn_color # Dynamically calculated so weather changes color
             }

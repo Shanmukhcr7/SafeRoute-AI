@@ -35,10 +35,15 @@ context_engine = ContextEngine()
 
 def load_local_routes():
     routes = []
-    routes_dir = Path("routes")
+    candidates = [
+        Path(__file__).resolve().parent.parent.parent / "routes",
+        Path("routes"),
+        Path("road-risk-ai/routes")
+    ]
+    routes_dir = next((c for c in candidates if c.exists()), Path("routes"))
     if routes_dir.exists():
         for f in routes_dir.glob("*.json"):
-            with open(f, 'r') as file:
+            with open(f, 'r', encoding="utf-8") as file:
                 routes.append(json.load(file))
     return routes
 
@@ -103,20 +108,40 @@ if st.session_state.simulation_state == "SETUP":
     # Risk Preview Timeline for the best route
     st.subheader(f"⭐ Risk Preview: {best_route['via']}")
     
-    # Simple mock timeline for demo
-    timeline_html = f"""
-    <div style="width:100%; background:#333; height:20px; border-radius:10px; display:flex; overflow:hidden;">
-        <div style="width:30%; background:#28a745; height:100%;" title="Safe"></div>
-        <div style="width:20%; background:#ffc107; height:100%;" title="Moderate Risk"></div>
-        <div style="width:15%; background:#dc3545; height:100%;" title="Critical Zone"></div>
-        <div style="width:35%; background:#28a745; height:100%;" title="Safe"></div>
-    </div>
-    <div style="display:flex; justify-content:space-between; color:#aaa; font-size:0.8rem; margin-top:5px;">
-        <span>0 km</span>
-        <span>{best_route['distance_km']:.0f} km</span>
-    </div>
-    """
-    st.markdown(timeline_html, unsafe_allow_html=True)
+    # Calculate hotspot counts for summary
+    dz_summary = best_route["analysis"].get("dynamic_zones", {})
+    count_fatal = len([z for z, d in dz_summary.items() if d["level"] == "FATAL"])
+    count_critical = len([z for z, d in dz_summary.items() if d["level"] == "CRITICAL"])
+    count_high = len([z for z, d in dz_summary.items() if d["level"] == "HIGH"])
+    count_mod = len([z for z, d in dz_summary.items() if d["level"] == "MODERATE"])
+    
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    col_m1.metric("🔴 Fatal Hotspots", count_fatal)
+    col_m2.metric("🟥 Critical Hotspots", count_critical)
+    col_m3.metric("🟧 High Hotspots", count_high)
+    col_m4.metric("🟨 Moderate Hotspots", count_mod)
+
+    # Route Hotspot Corridor Preview Map
+    start_pt = best_route["geometry"][0]
+    preview_map = folium.Map(location=[start_pt[1], start_pt[0]], zoom_start=8, tiles="OpenStreetMap")
+    route_latlngs = [[p[1], p[0]] for p in best_route["geometry"]]
+    folium.PolyLine(route_latlngs, color="#00aaff", weight=4, opacity=0.85, tooltip=f"Route: {best_route['via']}").add_to(preview_map)
+    
+    for z in best_route["analysis"]["passed_zones"]:
+        if z in dz_summary and dz_summary[z]["level"] in ["FATAL", "CRITICAL", "HIGH", "MODERATE"]:
+            poly = h3.cell_to_boundary(z)
+            data = dz_summary[z]
+            folium.Polygon(
+                locations=poly,
+                color=data["color"],
+                fill=True,
+                fill_color=data["color"],
+                fill_opacity=0.6,
+                weight=2,
+                tooltip=f"{data['level']} Hotspot | AI Risk: {data['score']:.1f}/100"
+            ).add_to(preview_map)
+            
+    components.html(preview_map._repr_html_(), height=400)
     
     st.markdown("---")
     col_start, col_speed = st.columns([1, 2])
@@ -148,7 +173,13 @@ elif st.session_state.simulation_state == "RUNNING":
     # Full width map without ADAS panel
     if st.session_state.simulation_state == "RUNNING":
         # Native JS Simulation Injection
-        with open("dashboard/components/smooth_simulator.html", "r", encoding="utf-8") as f:
+        candidates = [
+            Path(__file__).resolve().parent.parent / "components" / "smooth_simulator.html",
+            Path("dashboard/components/smooth_simulator.html"),
+            Path("road-risk-ai/dashboard/components/smooth_simulator.html"),
+        ]
+        html_path = next((c for c in candidates if c.exists()), Path("dashboard/components/smooth_simulator.html"))
+        with open(html_path, "r", encoding="utf-8") as f:
             html_template = f.read()
             
         # Prepare data
@@ -158,19 +189,22 @@ elif st.session_state.simulation_state == "RUNNING":
         dynamic_zones = route["analysis"].get("dynamic_zones", {})
         
         for z in route["analysis"]["passed_zones"]:
-            if z in dynamic_zones and dynamic_zones[z]["level"] in ["FATAL", "CRITICAL", "HIGH"]:
+            if z in dynamic_zones and dynamic_zones[z]["level"] in ["FATAL", "CRITICAL", "HIGH", "MODERATE"]:
                 poly = h3.cell_to_boundary(z)
                 poly_lonlat = [[p[1], p[0]] for p in poly] # JS turf needs lon,lat
-                color = dynamic_zones[z]["color"]
+                z_info = dynamic_zones[z]
                 
-                if not color: # fallback
-                    color = "#FF0000" if dynamic_zones[z]["level"] in ["FATAL", "CRITICAL"] else "#FFA500"
+                color = z_info.get("color")
+                if not color:
+                    color = "#EF4444" if z_info["level"] in ["FATAL", "CRITICAL"] else ("#F97316" if z_info["level"] == "HIGH" else "#FBBF24")
                 
                 zones_data.append({
                     "polygon": poly_lonlat, 
                     "color": color,
-                    "level": dynamic_zones[z]["level"],
-                    "score": dynamic_zones[z]["score"]
+                    "level": z_info["level"],
+                    "score": z_info["score"],
+                    "base_score": z_info.get("base_score", z_info["score"]),
+                    "multiplier": z_info.get("multiplier", 1.0)
                 })
         
         zones_json = json.dumps(zones_data)

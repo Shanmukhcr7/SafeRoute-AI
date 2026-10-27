@@ -12,7 +12,15 @@ st.markdown("This map visualizes the historical H3 risk zones aggregated from th
 
 @st.cache_data
 def load_zones():
-    conn = sqlite3.connect("database/road_risk.db")
+    candidates = [
+        Path(__file__).resolve().parent.parent.parent / "database" / "road_risk.db",
+        Path("database/road_risk.db"),
+        Path("road-risk-ai/database/road_risk.db"),
+    ]
+    db_path = next((c for c in candidates if c.exists()), Path("database/road_risk.db"))
+    if not db_path.exists():
+        return pd.DataFrame()
+    conn = sqlite3.connect(db_path)
     df = pd.read_sql_query("SELECT h3_index, risk_score, risk_level, risk_color FROM risk_scores WHERE risk_level IN ('FATAL', 'CRITICAL', 'HIGH') LIMIT 5000", conn)
     conn.close()
     return df
