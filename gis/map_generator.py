@@ -63,7 +63,7 @@ class MapGenerator:
     def generate_map(self, output_path: str = "interactive_risk_map.html"):
         logging.info("Initializing Map...")
         # Center map over France roughly
-        m = folium.Map(location=[46.2276, 2.2137], zoom_start=6, tiles='CartoDB dark_matter')
+        m = folium.Map(location=[46.2276, 2.2137], zoom_start=6, tiles="OpenStreetMap")
         
         logging.info("Building Layers...")
         # We use a trick: Folium GeoJsonPopup cannot easily render raw HTML strings from a property perfectly without custom JS sometimes,

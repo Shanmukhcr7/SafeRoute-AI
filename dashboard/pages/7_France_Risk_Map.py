@@ -25,7 +25,7 @@ else:
     st.metric("Total Critical & High Risk Zones Loaded", len(df_zones))
     
     # France center
-    m = folium.Map(location=[46.2276, 2.2137], zoom_start=6, tiles="CartoDB positron")
+    m = folium.Map(location=[46.2276, 2.2137], zoom_start=6, tiles="OpenStreetMap")
     
     # For performance, we only draw the top critical ones if there are too many
     for _, row in df_zones.iterrows():
