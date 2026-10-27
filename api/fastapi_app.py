@@ -169,36 +169,36 @@ def get_available_routes():
                 
     return {"routes": routes}
 
-@app.post("/api/routes/analyze")
-def analyze_selected_route(req: RouteAnalysisRequest):
+# Cache for route analyses to deliver sub-millisecond responses
+_ROUTE_ANALYSIS_CACHE = {}
+
+def compute_route_analysis(route_name: str, weather: str, time_of_day: str):
+    cache_key = (route_name, weather, time_of_day)
+    if cache_key in _ROUTE_ANALYSIS_CACHE:
+        return _ROUTE_ANALYSIS_CACHE[cache_key]
+        
     routes_dir = ROOT_DIR / "routes"
-    route_file = routes_dir / f"{req.route_name}.json"
-    
+    route_file = routes_dir / f"{route_name}.json"
     if not route_file.exists():
-        # Try finding first matching file
         all_files = list(routes_dir.glob("*.json"))
         if not all_files:
-            raise HTTPException(status_code=404, detail="No routes available in routes directory.")
+            return None
         route_file = all_files[0]
         
     with open(route_file, "r", encoding="utf-8") as f:
         route_data = json.load(f)
         
     geom = route_data["geometry"]
-    analysis = analyzer.analyze_route(geom, weather=req.weather, time_of_day=req.time_of_day)
+    analysis = analyzer.analyze_route(geom, weather=weather, time_of_day=time_of_day)
     
-    # Format hotspots for React Leaflet
     dynamic_zones = analysis.get("dynamic_zones", {})
     hotspots = []
     
     for z in analysis.get("passed_zones", []):
         if z in dynamic_zones and dynamic_zones[z]["level"] in ["FATAL", "CRITICAL", "HIGH", "MODERATE"]:
             poly = h3.cell_to_boundary(z)
-            # React Leaflet expects [[lat, lon], ...]
             poly_latlng = [[p[0], p[1]] for p in poly]
             z_info = dynamic_zones[z]
-            
-            # Centroid
             lat, lon = h3.cell_to_latlng(z)
             
             hotspots.append({
@@ -212,30 +212,30 @@ def analyze_selected_route(req: RouteAnalysisRequest):
                 "color": z_info["color"],
             })
             
-    # Sort hotspots by score descending
     hotspots.sort(key=lambda x: x["score"], reverse=True)
     
-    return {
+    result = {
         "route_id": route_file.stem,
         "route_name": route_data.get("route_name", route_file.stem),
         "via": route_data.get("via", "Direct"),
         "distance_km": round(route_data.get("distance_km", 0), 1),
         "duration_minutes": round(route_data.get("duration_minutes", 0), 1),
-        "geometry": geom, # [[lon, lat], ...]
+        "geometry": geom,
         "safety_score": analysis["safety_score"],
         "avg_risk": analysis["avg_risk"],
         "max_risk": analysis["max_risk"],
         "critical_zones_count": analysis["critical_zones"],
         "total_hotspots_count": len(hotspots),
         "environment": {
-            "weather": req.weather,
-            "time_of_day": req.time_of_day
+            "weather": weather,
+            "time_of_day": time_of_day
         },
         "hotspots": hotspots
     }
+    _ROUTE_ANALYSIS_CACHE[cache_key] = result
+    return result
 
-@app.post("/api/routes/compare")
-def compare_all_routes(req: RouteComparisonRequest):
+def _do_compare_routes(weather: str, time_of_day: str):
     routes_dir = ROOT_DIR / "routes"
     comparison = []
     best_route = None
@@ -243,26 +243,23 @@ def compare_all_routes(req: RouteComparisonRequest):
     
     for f in routes_dir.glob("*.json"):
         try:
-            with open(f, "r", encoding="utf-8") as file:
-                route_data = json.load(file)
-            analysis = analyzer.analyze_route(route_data["geometry"], weather=req.weather, time_of_day=req.time_of_day)
-            
+            analysis_data = compute_route_analysis(f.stem, weather, time_of_day)
+            if not analysis_data:
+                continue
             route_item = {
                 "id": f.stem,
-                "name": route_data.get("route_name", f.stem),
-                "via": route_data.get("via", "Direct"),
-                "distance_km": round(route_data.get("distance_km", 0), 1),
-                "duration_minutes": round(route_data.get("duration_minutes", 0), 1),
-                "avg_risk": analysis["avg_risk"],
-                "max_risk": analysis["max_risk"],
-                "critical_zones": analysis["critical_zones"],
-                "safety_score": analysis["safety_score"],
+                "name": analysis_data["route_name"],
+                "via": analysis_data["via"],
+                "distance_km": analysis_data["distance_km"],
+                "duration_minutes": analysis_data["duration_minutes"],
+                "avg_risk": analysis_data["avg_risk"],
+                "max_risk": analysis_data["max_risk"],
+                "critical_zones": analysis_data["critical_zones_count"],
+                "safety_score": analysis_data["safety_score"],
             }
-            
-            if analysis["safety_score"] > highest_safety:
-                highest_safety = analysis["safety_score"]
+            if analysis_data["safety_score"] > highest_safety:
+                highest_safety = analysis_data["safety_score"]
                 best_route = route_item
-                
             comparison.append(route_item)
         except Exception:
             pass
@@ -274,6 +271,28 @@ def compare_all_routes(req: RouteComparisonRequest):
         "routes": comparison,
         "recommended_route_id": best_route["id"] if best_route else None
     }
+
+@app.get("/api/routes/analyze")
+def analyze_selected_route_get(route_name: str = "paris_lyon_A", weather: str = "Clear", time_of_day: str = "Day"):
+    result = compute_route_analysis(route_name, weather, time_of_day)
+    if not result:
+        raise HTTPException(status_code=404, detail="Route not found")
+    return result
+
+@app.post("/api/routes/analyze")
+def analyze_selected_route(req: RouteAnalysisRequest):
+    result = compute_route_analysis(req.route_name, req.weather, req.time_of_day)
+    if not result:
+        raise HTTPException(status_code=404, detail="Route not found")
+    return result
+
+@app.get("/api/routes/compare")
+def compare_all_routes_get(weather: str = "Clear", time_of_day: str = "Day"):
+    return _do_compare_routes(weather, time_of_day)
+
+@app.post("/api/routes/compare")
+def compare_all_routes(req: RouteComparisonRequest):
+    return _do_compare_routes(req.weather, req.time_of_day)
 
 @app.get("/api/model/evaluation")
 def get_model_evaluation():

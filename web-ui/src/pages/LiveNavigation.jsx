@@ -13,10 +13,47 @@ import {
   Route,
   Clock,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react';
 import LeafletSimulator from '../components/LeafletSimulator';
 import { api } from '../services/api';
+
+const DEFAULT_ROUTES = [
+  {
+    id: 'paris_lyon_A',
+    name: 'paris_lyon_A',
+    via: 'A6 Highway (Direct)',
+    distance_km: 465.9,
+    duration_minutes: 297.9,
+    safety_score: 87.3,
+    avg_risk: 15.3,
+    critical_zones: 1,
+    recommended: true,
+  },
+  {
+    id: 'paris_lyon_B',
+    name: 'paris_lyon_B',
+    via: 'Dijon (Scenic)',
+    distance_km: 511.1,
+    duration_minutes: 337.1,
+    safety_score: 72.0,
+    avg_risk: 16.0,
+    critical_zones: 4,
+    recommended: false,
+  },
+  {
+    id: 'paris_lyon_C',
+    name: 'paris_lyon_C',
+    via: 'Clermont-Ferrand (Western)',
+    distance_km: 589.1,
+    duration_minutes: 392.7,
+    safety_score: 42.7,
+    avg_risk: 14.5,
+    critical_zones: 10,
+    recommended: false,
+  },
+];
 
 export default function LiveNavigation() {
   const [selectedRouteId, setSelectedRouteId] = useState('paris_lyon_A');
@@ -24,25 +61,49 @@ export default function LiveNavigation() {
   const [timeOfDay, setTimeOfDay] = useState('Day');
 
   const [routeAnalysis, setRouteAnalysis] = useState(null);
-  const [comparisonRoutes, setComparisonRoutes] = useState([]);
+  const [comparisonRoutes, setComparisonRoutes] = useState(DEFAULT_ROUTES);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Load comparison and initial analysis
-  useEffect(() => {
+  // Fetch corridor analysis for the selected route
+  const fetchAnalysis = () => {
     setLoading(true);
-    Promise.all([
-      api.compareRoutes(weather, timeOfDay).catch(() => null),
-      api.analyzeRoute(selectedRouteId, weather, timeOfDay).catch(() => null),
-    ]).then(([compData, analysisData]) => {
-      if (compData?.routes) {
-        setComparisonRoutes(compData.routes);
-      }
-      if (analysisData) {
-        setRouteAnalysis(analysisData);
-      }
-      setLoading(false);
-    });
+    setError(null);
+    api.analyzeRoute(selectedRouteId, weather, timeOfDay)
+      .then((data) => {
+        if (data && data.geometry) {
+          setRouteAnalysis(data);
+          setError(null);
+        } else {
+          setError('No geometry received for corridor.');
+        }
+      })
+      .catch((err) => {
+        console.error('Route analysis error:', err);
+        setError('Failed to compute route corridor. Ensure backend is running.');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+
+  // Re-run corridor analysis whenever route, weather, or time of day changes
+  useEffect(() => {
+    fetchAnalysis();
   }, [selectedRouteId, weather, timeOfDay]);
+
+  // Re-run comparison across all routes when weather or lighting changes
+  useEffect(() => {
+    api.compareRoutes(weather, timeOfDay)
+      .then((compData) => {
+        if (compData?.routes && compData.routes.length > 0) {
+          setComparisonRoutes(compData.routes);
+        }
+      })
+      .catch((err) => {
+        console.warn('Routes comparison API fallback:', err);
+      });
+  }, [weather, timeOfDay]);
 
   const weatherOptions = [
     { label: 'Clear', icon: CloudSun, value: 'Clear' },
@@ -176,7 +237,7 @@ export default function LiveNavigation() {
                 <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800/80 text-center">
                   <div>
                     <span className="block text-[10px] text-slate-400 uppercase font-medium">Safety Score</span>
-                    <span className={`text-base font-black ${r.safety_score >= 80 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    <span className={`text-base font-black ${r.safety_score >= 80 ? 'text-emerald-400' : (r.safety_score >= 60 ? 'text-amber-400' : 'text-red-400')}`}>
                       {r.safety_score}/100
                     </span>
                   </div>
@@ -209,9 +270,18 @@ export default function LiveNavigation() {
                 Live Simulation: {routeAnalysis.via}
               </h2>
             </div>
-            <span className="text-xs px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300">
-              Active Environment: <b>{weather}</b> during <b>{timeOfDay}</b>
-            </span>
+            <div className="flex items-center space-x-3">
+              <span className="text-xs px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300">
+                Active Environment: <b>{weather}</b> during <b>{timeOfDay}</b>
+              </span>
+              <button
+                onClick={fetchAnalysis}
+                className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-all border border-slate-700"
+                title="Refresh corridor analysis"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
           </div>
 
           <LeafletSimulator
@@ -220,9 +290,35 @@ export default function LiveNavigation() {
             environment={{ weather, time_of_day: timeOfDay }}
           />
         </div>
+      ) : error ? (
+        <div className="w-full h-96 rounded-2xl bg-slate-900 border border-red-900/40 flex flex-col items-center justify-center space-y-4 p-6 text-center">
+          <AlertTriangle className="w-12 h-12 text-red-400 animate-pulse" />
+          <div>
+            <h3 className="text-lg font-bold text-white">Route Analysis Disconnected</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-md">
+              {error}
+            </p>
+          </div>
+          <button
+            onClick={fetchAnalysis}
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-500/20 flex items-center space-x-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Retry Route Computation</span>
+          </button>
+        </div>
       ) : (
-        <div className="w-full h-96 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 text-sm">
-          Loading AI Route Corridor & Hotspots...
+        <div className="w-full h-[620px] rounded-2xl bg-slate-900 border border-slate-800 flex flex-col items-center justify-center space-y-4">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-full border-4 border-blue-500/20 border-t-blue-500 animate-spin"></div>
+            <Compass className="w-8 h-8 text-blue-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+          </div>
+          <div className="text-center">
+            <p className="text-base font-bold text-white">Synthesizing H3 Route Corridor</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Calibrating dynamic weather risk multipliers and collision hotspots...
+            </p>
+          </div>
         </div>
       )}
 

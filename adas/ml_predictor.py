@@ -56,3 +56,33 @@ class DynamicRiskPredictor:
         
         # Cap multiplier between 0.5 (very safe) and 2.0 (extremely dangerous)
         return max(0.5, min(multiplier, 2.0))
+
+    def get_risk_multipliers(self, coords_list, weather="Clear", time_of_day="Day"):
+        """
+        Vectorized batch calculation of risk multipliers for a list of (lat, lon) coordinates.
+        Massively faster than calling get_risk_multiplier individually in loops.
+        """
+        if not self.model or not coords_list:
+            return [1.0] * len(coords_list)
+
+        is_raining = 1 if weather == "Rain" else 0
+        is_snowing = 1 if weather == "Snow" else 0
+        is_fog = 1 if weather == "Fog" else 0
+        is_night = 1 if time_of_day == "Night" else 0
+        hour = 2 if time_of_day == "Night" else 14
+
+        n = len(coords_list)
+        X_input = pd.DataFrame({
+            'lat_rounded': [round(c[0], 1) for c in coords_list],
+            'long_rounded': [round(c[1], 1) for c in coords_list],
+            'is_raining': np.full(n, is_raining, dtype=np.int32),
+            'is_snowing': np.full(n, is_snowing, dtype=np.int32),
+            'is_fog': np.full(n, is_fog, dtype=np.int32),
+            'is_night': np.full(n, is_night, dtype=np.int32),
+            'hour': np.full(n, hour, dtype=np.int32)
+        })
+
+        probs = self.model.predict_proba(X_input)[:, 1]
+        baseline_prob = 0.55
+        multipliers = probs / baseline_prob
+        return np.clip(multipliers, 0.5, 2.0).tolist()

@@ -10,7 +10,6 @@ import {
   Crosshair, 
   AlertTriangle, 
   Gauge, 
-  CloudRain,
   ShieldAlert
 } from 'lucide-react';
 
@@ -27,36 +26,51 @@ export default function LeafletSimulator({
   const zonesLayerGroupRef = useRef(null);
 
   const [isPlaying, setIsPlaying] = useState(true);
-  const [speedKmh, setSpeedKmh] = useState(180);
+  const [speedKmh, setSpeedKmh] = useState(200);
   const [progressKm, setProgressKm] = useState(0);
   const [totalKm, setTotalKm] = useState(0);
-  const [followCar, setFollowCar] = useState(false); // Start with overview
+  const [followCar, setFollowCar] = useState(false);
   const [activeAlert, setActiveAlert] = useState(null);
 
-  // References for animation loop
+  // References for animation loop to avoid re-renders
   const animFrameRef = useRef(null);
   const lastTimeRef = useRef(null);
   const currentDistRef = useRef(0);
   const isPlayingRef = useRef(isPlaying);
   const speedRef = useRef(speedKmh);
   const followCarRef = useRef(followCar);
+  const activeAlertIdRef = useRef(null);
+  const lastProgressUpdateRef = useRef(0);
 
   isPlayingRef.current = isPlaying;
   speedRef.current = speedKmh;
   followCarRef.current = followCar;
 
-  // Initialize Map
+  // Single consolidated Map & Simulation Lifecycle
   useEffect(() => {
     if (!mapContainerRef.current) return;
+    if (!geometry || geometry.length < 2) return;
 
-    if (!mapInstanceRef.current) {
-      const defaultCenter = geometry.length > 0 ? [geometry[0][1], geometry[0][0]] : [48.8566, 2.3522];
-      const map = L.map(mapContainerRef.current, {
+    // Reset distance & alert
+    currentDistRef.current = 0;
+    setProgressKm(0);
+    setActiveAlert(null);
+    activeAlertIdRef.current = null;
+
+    // 1. Initialize Leaflet Map safely (guards against React StrictMode re-initialization)
+    let map = mapInstanceRef.current;
+    if (!map) {
+      if (mapContainerRef.current._leaflet_id) {
+        delete mapContainerRef.current._leaflet_id;
+      }
+
+      const defaultCenter = [geometry[0][1], geometry[0][0]];
+      map = L.map(mapContainerRef.current, {
         zoomControl: true,
         attributionControl: true,
       }).setView(defaultCenter, 10);
 
-      // Clean, free OpenStreetMap basemap tiles (ZERO API keys, zero watermarks)
+      // Free, open OpenStreetMap tiles (no API keys, no watermarks)
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -66,28 +80,18 @@ export default function LeafletSimulator({
       zonesLayerGroupRef.current = L.layerGroup().addTo(map);
     }
 
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    // Force map to compute dimensions accurately
+    setTimeout(() => {
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+        mapInstanceRef.current.invalidateSize();
       }
-    };
-  }, []);
+    }, 150);
 
-  // Update Route, Hotspots, and start animation
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map || !geometry || geometry.length < 2) return;
-
-    // Reset distance
-    currentDistRef.current = 0;
-    setProgressKm(0);
-
-    // 1. Draw route polyline
-    if (pathLayerRef.current) {
+    // 2. Draw Route Polyline
+    if (pathLayerRef.current && map.hasLayer(pathLayerRef.current)) {
       map.removeLayer(pathLayerRef.current);
     }
+
     const latlngs = geometry.map(p => [p[1], p[0]]);
     const path = L.polyline(latlngs, {
       color: '#00aaff',
@@ -101,10 +105,10 @@ export default function LeafletSimulator({
     const totalDist = turf.length(routeLine, { units: 'kilometers' });
     setTotalKm(totalDist);
 
-    // Initial camera fit to show full route and hotspots
+    // Fit map to full route corridor initially
     map.fitBounds(path.getBounds().pad(0.08));
 
-    // 2. Draw Hotspots Layer
+    // 3. Draw Hotspots Layer
     if (zonesLayerGroupRef.current) {
       zonesLayerGroupRef.current.clearLayers();
     }
@@ -112,7 +116,6 @@ export default function LeafletSimulator({
     const processedTurfZones = [];
 
     hotspots.forEach((zone) => {
-      // Pick vibrant styling based on severity level
       let strokeColor = '#f59e0b';
       let fillColor = '#fbbf24';
       let fillOpacity = 0.5;
@@ -135,55 +138,58 @@ export default function LeafletSimulator({
         badgeClass = 'high';
       }
 
-      // Draw Polygon
-      const poly = L.polygon(zone.polygon, {
-        color: strokeColor,
-        weight: 2.5,
-        opacity: 0.9,
-        fillColor: fillColor,
-        fillOpacity: fillOpacity,
-      });
-
-      const tooltipContent = `
-        <div style="font-family:sans-serif; font-size:12px; line-height:1.4;">
-          <b style="color:${strokeColor}">⚠️ ${zone.level} ACCIDENT HOTSPOT</b><br/>
-          <b>Dynamic AI Risk:</b> ${zone.score.toFixed(1)} / 100<br/>
-          <b>Base Historical Risk:</b> ${zone.base_score.toFixed(1)}<br/>
-          <b>Weather Multiplier:</b> ${(zone.multiplier || 1.0).toFixed(2)}x<br/>
-          <b>Status:</b> ${zone.level === 'FATAL' || zone.level === 'CRITICAL' ? 'High Lethality Cluster' : 'Dense Crash Corridor'}
-        </div>
-      `;
-      poly.bindTooltip(tooltipContent, { className: 'custom-tooltip', sticky: true });
-      zonesLayerGroupRef.current.addLayer(poly);
-
-      // Centroid Badge for High/Critical/Fatal
-      if (['FATAL', 'CRITICAL', 'HIGH'].includes(zone.level) && zone.centroid) {
-        const badgeIcon = L.divIcon({
-          html: `<div class="hotspot-badge ${badgeClass}" title="${zone.level} Hotspot">⚠️</div>`,
-          className: '',
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
+      if (zone.polygon && zone.polygon.length >= 3) {
+        const poly = L.polygon(zone.polygon, {
+          color: strokeColor,
+          weight: 2.5,
+          opacity: 0.9,
+          fillColor: fillColor,
+          fillOpacity: fillOpacity,
         });
-        const marker = L.marker(zone.centroid, { icon: badgeIcon });
-        marker.bindTooltip(tooltipContent, { className: 'custom-tooltip' });
-        zonesLayerGroupRef.current.addLayer(marker);
-      }
 
-      // Prepare turf polygon for collision detection
-      try {
-        const lonLatRing = zone.polygon.map(p => [p[1], p[0]]);
-        lonLatRing.push(lonLatRing[0]); // close ring
-        processedTurfZones.push({
-          turfPoly: turf.polygon([lonLatRing]),
-          data: zone,
-        });
-      } catch (e) {
-        // Safe ring fallback
+        const tooltipContent = `
+          <div style="font-family:sans-serif; font-size:12px; line-height:1.4;">
+            <b style="color:${strokeColor}">⚠️ ${zone.level} ACCIDENT HOTSPOT</b><br/>
+            <b>Dynamic AI Risk:</b> ${(zone.score || 0).toFixed(1)} / 100<br/>
+            <b>Base Historical Risk:</b> ${(zone.base_score || zone.score || 0).toFixed(1)}<br/>
+            <b>Weather Multiplier:</b> ${(zone.multiplier || 1.0).toFixed(2)}x<br/>
+            <b>Status:</b> ${zone.level === 'FATAL' || zone.level === 'CRITICAL' ? 'High Lethality Cluster' : 'Dense Crash Corridor'}
+          </div>
+        `;
+        poly.bindTooltip(tooltipContent, { className: 'custom-tooltip', sticky: true });
+        zonesLayerGroupRef.current.addLayer(poly);
+
+        // Centroid Badge for High/Critical/Fatal
+        if (['FATAL', 'CRITICAL', 'HIGH'].includes(zone.level) && zone.centroid) {
+          const badgeIcon = L.divIcon({
+            html: `<div class="hotspot-badge ${badgeClass}" title="${zone.level} Hotspot">⚠️</div>`,
+            className: '',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          });
+          const marker = L.marker(zone.centroid, { icon: badgeIcon });
+          marker.bindTooltip(tooltipContent, { className: 'custom-tooltip' });
+          zonesLayerGroupRef.current.addLayer(marker);
+        }
+
+        // Prepare turf polygon for collision detection
+        try {
+          const ring = zone.polygon.map(p => [p[1], p[0]]); // [lon, lat]
+          ring.push([ring[0][0], ring[0][1]]); // close ring
+          if (ring.length >= 4) {
+            processedTurfZones.push({
+              turfPoly: turf.polygon([ring]),
+              data: zone,
+            });
+          }
+        } catch (e) {
+          // ignore invalid ring
+        }
       }
     });
 
-    // 3. Vehicle Marker
-    if (carMarkerRef.current) {
+    // 4. Vehicle Marker Setup
+    if (carMarkerRef.current && map.hasLayer(carMarkerRef.current)) {
       map.removeLayer(carMarkerRef.current);
     }
 
@@ -207,12 +213,12 @@ export default function LeafletSimulator({
     const carMarker = L.marker(startCoord, { icon: carIcon, zIndexOffset: 1000 }).addTo(map);
     carMarkerRef.current = carMarker;
 
-    // After 2.5 seconds of overview, auto-enable tracking
+    // Auto-engage tracking after 2.5 seconds of corridor overview
     const autoFollowTimeout = setTimeout(() => {
       setFollowCar(true);
     }, 2500);
 
-    // 4. Animation Loop
+    // 5. Animation Loop
     lastTimeRef.current = null;
 
     function animate(timestamp) {
@@ -226,13 +232,18 @@ export default function LeafletSimulator({
         if (currentDistRef.current >= totalDist) {
           currentDistRef.current = totalDist;
           setIsPlaying(false);
+          setProgressKm(totalDist);
+        } else {
+          // Throttle progress state updates to ~8fps to eliminate 60fps React re-render churn
+          if (!lastProgressUpdateRef.current || (timestamp - lastProgressUpdateRef.current) > 120) {
+            lastProgressUpdateRef.current = timestamp;
+            setProgressKm(currentDistRef.current);
+          }
         }
 
-        setProgressKm(currentDistRef.current);
-
-        // Interpolate current vehicle coordinate
         try {
-          const currentPt = turf.along(routeLine, currentDistRef.current, { units: 'kilometers' }).geometry.coordinates;
+          const safeDist = Math.max(0, Math.min(currentDistRef.current, Math.max(0.001, totalDist - 0.001)));
+          const currentPt = turf.along(routeLine, safeDist, { units: 'kilometers' }).geometry.coordinates;
           const lat = currentPt[1];
           const lon = currentPt[0];
 
@@ -257,22 +268,39 @@ export default function LeafletSimulator({
           const lookaheadPt = turf.along(routeLine, checkDistance, { units: 'kilometers' }).geometry.coordinates;
           const lookaheadPoint = turf.point(lookaheadPt);
 
+          // Fast Bounding Box pre-check before expensive Turf polygon test
           let hit = null;
           for (let i = 0; i < processedTurfZones.length; i++) {
+            const z = processedTurfZones[i].data;
+            if (z.centroid) {
+              const dLat = Math.abs(z.centroid[0] - lookaheadPt[1]);
+              const dLon = Math.abs(z.centroid[1] - lookaheadPt[0]);
+              if (dLat > 0.015 || dLon > 0.02) {
+                continue; // Skip polygon check if further than ~1.5km
+              }
+            }
+
             if (turf.booleanPointInPolygon(lookaheadPoint, processedTurfZones[i].turfPoly)) {
-              hit = processedTurfZones[i].data;
+              hit = z;
               break;
             }
           }
 
+          // State update ONLY if alert state changed (avoids 60fps re-render freeze!)
           if (hit) {
-            setActiveAlert(hit);
-            if (onAlert) onAlert(hit);
+            if (activeAlertIdRef.current !== hit.h3_index) {
+              activeAlertIdRef.current = hit.h3_index;
+              setActiveAlert(hit);
+              if (onAlert) onAlert(hit);
+            }
           } else {
-            setActiveAlert(null);
+            if (activeAlertIdRef.current !== null) {
+              activeAlertIdRef.current = null;
+              setActiveAlert(null);
+            }
           }
         } catch (e) {
-          // turf interpolation safe catch
+          // ignore interpolation safe catch
         }
       }
 
@@ -287,7 +315,20 @@ export default function LeafletSimulator({
     };
   }, [geometry, hotspots]);
 
-  // Action Handlers
+  // Clean-up on unmount
+  useEffect(() => {
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+      if (mapContainerRef.current) {
+        delete mapContainerRef.current._leaflet_id;
+      }
+    };
+  }, []);
+
   const handleFitFullRoute = () => {
     setFollowCar(false);
     if (mapInstanceRef.current && pathLayerRef.current) {
@@ -314,7 +355,7 @@ export default function LeafletSimulator({
 
   return (
     <div className="relative w-full h-[620px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950">
-      {/* The Leaflet Map Canvas */}
+      {/* Map Canvas */}
       <div ref={mapContainerRef} className="w-full h-full" />
 
       {/* Floating Top-Right HUD: Hotspot Counts & Legend */}
@@ -396,7 +437,7 @@ export default function LeafletSimulator({
                 ⚠️ ADAS Hazard Alert: 500m Ahead
               </div>
               <div className="text-sm font-extrabold">
-                {activeAlert.level} Collision Hotspot — Risk Score: {activeAlert.score.toFixed(1)}/100
+                {activeAlert.level} Collision Hotspot — Risk Score: {(activeAlert.score || 0).toFixed(1)}/100
               </div>
               <div className="text-[11px] text-white/90">
                 AI Advisory: Decelerate immediately to {activeAlert.level === 'FATAL' ? '30' : (activeAlert.level === 'CRITICAL' ? '50' : '70')} km/h

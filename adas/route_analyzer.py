@@ -35,13 +35,20 @@ class RouteAnalyzer:
             
     def analyze_route(self, route_geometry, weather="Clear", time_of_day="Day"):
         """
-        Analyzes route against risk zones and applies ML dynamic multipliers.
+        Analyzes route against risk zones and applies ML dynamic multipliers via vectorized batch inference.
         """
-        print(f"Analyzing route dynamically for {weather} at {time_of_day}...")
         passed_zones = set()
-        for i in range(0, len(route_geometry), 2): 
+        seen_cells = set()
+        
+        # Sampling step: res 8 H3 cells have ~900m diameter; step of 4 gives dense corridor coverage without redundant re-checks
+        step = 4
+        for i in range(0, len(route_geometry), step): 
             pt = route_geometry[i]
-            h3_idx = h3.latlng_to_cell(pt[1], pt[0], 8) 
+            h3_idx = h3.latlng_to_cell(pt[1], pt[0], 8)
+            if h3_idx in seen_cells:
+                continue
+            seen_cells.add(h3_idx)
+            
             if h3_idx in self.risk_zones:
                 passed_zones.add(h3_idx)
             # Include corridor neighbors with historical risk
@@ -54,49 +61,47 @@ class RouteAnalyzer:
         max_risk = 0
         critical_count = 0
         
-        # Deep copy to not permanently mutate the base zones
         dynamic_zones = {}
+        passed_zones_list = list(passed_zones)
         
-        for z in passed_zones:
-            base_score = self.risk_zones[z]["score"]
-            lat, lon = h3.cell_to_latlng(z)
+        if passed_zones_list:
+            coords = [h3.cell_to_latlng(z) for z in passed_zones_list]
+            multipliers = self.ml.get_risk_multipliers(coords, weather=weather, time_of_day=time_of_day)
             
-            # Use ML model to predict danger based on weather, time, and location
-            multiplier = self.ml.get_risk_multiplier(lat, lon, weather, time_of_day)
-            
-            # Calculate dynamic severity
-            dynamic_score = min(base_score * multiplier, 100.0)
-            
-            # Recalculate level based on new score
-            if dynamic_score >= 80: 
-                level = "FATAL"
-                dyn_color = "#DC2626"
-            elif dynamic_score >= 65: 
-                level = "CRITICAL"
-                dyn_color = "#EF4444"
-            elif dynamic_score >= 45: 
-                level = "HIGH"
-                dyn_color = "#F97316"
-            elif dynamic_score >= 25: 
-                level = "MODERATE"
-                dyn_color = "#FBBF24"
-            else: 
-                level = "LOW"
-                dyn_color = "#10B981"
-            
-            if level in ["CRITICAL", "FATAL"]:
-                critical_count += 1
+            for z, (lat, lon), multiplier in zip(passed_zones_list, coords, multipliers):
+                base_score = self.risk_zones[z]["score"]
+                dynamic_score = min(base_score * multiplier, 100.0)
                 
-            dynamic_zones[z] = {
-                "score": dynamic_score,
-                "base_score": base_score,
-                "multiplier": multiplier,
-                "level": level,
-                "color": dyn_color # Dynamically calculated so weather changes color
-            }
-            
-            total_dynamic_score += dynamic_score
-            max_risk = max(max_risk, dynamic_score)
+                # Recalculate level based on new score
+                if dynamic_score >= 80: 
+                    level = "FATAL"
+                    dyn_color = "#DC2626"
+                elif dynamic_score >= 65: 
+                    level = "CRITICAL"
+                    dyn_color = "#EF4444"
+                elif dynamic_score >= 45: 
+                    level = "HIGH"
+                    dyn_color = "#F97316"
+                elif dynamic_score >= 25: 
+                    level = "MODERATE"
+                    dyn_color = "#FBBF24"
+                else: 
+                    level = "LOW"
+                    dyn_color = "#10B981"
+                
+                if level in ["CRITICAL", "FATAL"]:
+                    critical_count += 1
+                    
+                dynamic_zones[z] = {
+                    "score": dynamic_score,
+                    "base_score": base_score,
+                    "multiplier": multiplier,
+                    "level": level,
+                    "color": dyn_color
+                }
+                
+                total_dynamic_score += dynamic_score
+                max_risk = max(max_risk, dynamic_score)
             
         avg_risk = total_dynamic_score / len(passed_zones) if passed_zones else 0
         
