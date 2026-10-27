@@ -95,6 +95,7 @@ export default function LiveNavigation() {
   const [comparisonRoutes, setComparisonRoutes] = useState(DEFAULT_ROUTES);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [tableFilter, setTableFilter] = useState('ALL'); // 'ALL' | 'RED' | 'BLACK' | 'ORANGE'
 
   // Fetch corridor analysis
   const fetchAnalysis = async (autoLaunch = false) => {
@@ -631,19 +632,63 @@ export default function LiveNavigation() {
           {/* Hotspots Breakdown Table */}
           {routeAnalysis?.hotspots && routeAnalysis.hotspots.length > 0 && (
             <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-xl space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-base font-bold text-white flex items-center space-x-2">
                     <ShieldAlert className="w-4 h-4 text-red-400" />
                     <span>Detected Hazard Zones along this Corridor</span>
                   </h3>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Top accident clusters identified via Uber H3 spatial resolution 8 indexing
+                    Categorized into Red (80+ Severe), Black (Medium 45–79), and Orange (Least &lt;45)
                   </p>
                 </div>
-                <span className="text-xs font-semibold text-slate-300 bg-slate-800 px-3 py-1 rounded-lg border border-slate-700">
-                  {routeAnalysis.hotspots.length} Total Monitored Hotspots
-                </span>
+
+                {/* Filter Tiers */}
+                <div className="flex flex-wrap items-center gap-1.5 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+                  <button
+                    onClick={() => setTableFilter('ALL')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                      tableFilter === 'ALL'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    All ({routeAnalysis.hotspots.length})
+                  </button>
+                  <button
+                    onClick={() => setTableFilter('RED')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 ${
+                      tableFilter === 'RED'
+                        ? 'bg-red-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-red-400'
+                    }`}
+                  >
+                    <span>🔴 Red</span>
+                    <span>({routeAnalysis.hotspots.filter(h => (h.score || 0) >= 80).length})</span>
+                  </button>
+                  <button
+                    onClick={() => setTableFilter('BLACK')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 ${
+                      tableFilter === 'BLACK'
+                        ? 'bg-slate-800 text-white border border-slate-600 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span>⬛ Black</span>
+                    <span>({routeAnalysis.hotspots.filter(h => (h.score || 0) >= 45 && (h.score || 0) < 80).length})</span>
+                  </button>
+                  <button
+                    onClick={() => setTableFilter('ORANGE')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 ${
+                      tableFilter === 'ORANGE'
+                        ? 'bg-orange-600 text-white shadow-sm'
+                        : 'text-orange-400 hover:text-orange-300'
+                    }`}
+                  >
+                    <span>🟧 Orange</span>
+                    <span>({routeAnalysis.hotspots.filter(h => (h.score || 0) < 45).length})</span>
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -660,45 +705,54 @@ export default function LiveNavigation() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 text-slate-200">
-                    {routeAnalysis.hotspots.slice(0, 8).map((h) => {
-                      const score = h.score || 0;
-                      const isRed = score >= 80;
-                      const isBlack = score >= 45 && score < 80;
-                      const isOrange = score < 45;
-                      return (
-                        <tr key={h.h3_index} className="hover:bg-slate-800/40 transition-colors">
-                          <td className="py-2.5 px-3">
-                            <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                              isRed ? 'bg-red-950 text-red-400 border border-red-800' :
-                              isBlack ? 'bg-black text-slate-100 border border-slate-600' :
-                              'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                            }`}>
-                              {isRed ? '80+ SEVERE (RED)' : (isBlack ? 'MEDIUM (BLACK)' : 'LEAST (ORANGE)')}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 font-mono text-[11px] text-slate-400">
-                            {h.h3_index}
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-300">
-                            {h.centroid[0].toFixed(4)}, {h.centroid[1].toFixed(4)}
-                          </td>
-                          <td className="py-2.5 px-3 font-extrabold text-white">
-                            {score.toFixed(1)} / 100
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-300 font-semibold">
-                            {(h.base_score || score).toFixed(1)}
-                          </td>
-                          <td className="py-2.5 px-3 font-semibold text-blue-400">
-                            {(h.multiplier || 1.0).toFixed(2)}x
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-300">
-                            {isRed ? 'Reduce speed to 35 km/h (Severe zone)' :
-                             isBlack ? 'Reduce speed to 65 km/h (Medium risk)' :
-                             'Exercise normal caution'}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {routeAnalysis.hotspots
+                      .filter((h) => {
+                        const s = h.score || 0;
+                        if (tableFilter === 'RED') return s >= 80;
+                        if (tableFilter === 'BLACK') return s >= 45 && s < 80;
+                        if (tableFilter === 'ORANGE') return s < 45;
+                        return true;
+                      })
+                      .slice(0, 15)
+                      .map((h) => {
+                        const score = h.score || 0;
+                        const isRed = score >= 80;
+                        const isBlack = score >= 45 && score < 80;
+                        const isOrange = score < 45;
+                        return (
+                          <tr key={h.h3_index} className="hover:bg-slate-800/40 transition-colors">
+                            <td className="py-2.5 px-3">
+                              <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                                isRed ? 'bg-red-950 text-red-400 border border-red-800' :
+                                isBlack ? 'bg-black text-slate-100 border border-slate-600' :
+                                'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                              }`}>
+                                {isRed ? '80+ SEVERE (RED)' : (isBlack ? 'MEDIUM (BLACK)' : 'LEAST (ORANGE)')}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-slate-400">
+                              {h.h3_index}
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-300">
+                              {h.centroid[0].toFixed(4)}, {h.centroid[1].toFixed(4)}
+                            </td>
+                            <td className="py-2.5 px-3 font-extrabold text-white">
+                              {score.toFixed(1)} / 100
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-300 font-semibold">
+                              {(h.base_score || score).toFixed(1)}
+                            </td>
+                            <td className="py-2.5 px-3 font-semibold text-blue-400">
+                              {(h.multiplier || 1.0).toFixed(2)}x
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-300">
+                              {isRed ? 'Reduce speed to 35 km/h (Severe zone)' :
+                               isBlack ? 'Reduce speed to 65 km/h (Medium risk)' :
+                               'Exercise normal caution (Least risk)'}
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
