@@ -52,7 +52,7 @@ export default function FranceRiskMap() {
 
     // Fetch national zones
     setLoading(true);
-    api.getNationalZones(2000)
+    api.getNationalZones(2400)
       .then(res => {
         if (res?.zones) {
           setZones(res.zones);
@@ -99,15 +99,15 @@ export default function FranceRiskMap() {
         fillOpacity = 0.8;
         tierLabel = 'MEDIUM RISK (BLACK)';
       } else {
-        strokeColor = '#c2410c';
+        strokeColor = '#ea580c';
         fillColor = '#f97316';
-        fillOpacity = 0.65;
+        fillOpacity = 0.75;
         tierLabel = 'LEAST RISK (ORANGE)';
       }
 
       const poly = L.polygon(z.polygon, {
         color: strokeColor,
-        weight: 1.5,
+        weight: score < 45 ? 2.5 : 1.5,
         opacity: 0.95,
         fillColor: fillColor,
         fillOpacity: fillOpacity,
@@ -171,10 +171,10 @@ export default function FranceRiskMap() {
           <span className="text-xs font-semibold text-slate-300">Severity Tier Filter:</span>
           <div className="flex space-x-1.5">
             {[
-              { id: 'ALL', label: 'All Loaded Tiers' },
-              { id: 'FATAL', label: '🔴 80+ Severe (Red)' },
-              { id: 'CRITICAL', label: '⬛ Medium (Black)' },
-              { id: 'HIGH', label: '🟧 Least (Orange)' },
+              { id: 'ALL', label: `All Tiers (${zones.length})` },
+              { id: 'FATAL', label: `🔴 80+ Severe (${zones.filter(z => (z.score || 0) >= 80).length})` },
+              { id: 'CRITICAL', label: `⬛ Medium (${zones.filter(z => (z.score || 0) >= 45 && (z.score || 0) < 80).length})` },
+              { id: 'HIGH', label: `🟧 Least (${zones.filter(z => (z.score || 0) < 45).length})` },
             ].map((f) => (
               <button
                 key={f.id}

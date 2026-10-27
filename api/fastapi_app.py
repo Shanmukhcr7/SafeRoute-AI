@@ -320,7 +320,7 @@ def get_model_evaluation():
     }
 
 @app.get("/api/zones/national")
-def get_national_risk_zones(limit: int = Query(default=1500, le=5000)):
+def get_national_risk_zones(limit: int = Query(default=2400, le=5000)):
     db_path = get_db_path()
     zones = []
     
@@ -329,16 +329,42 @@ def get_national_risk_zones(limit: int = Query(default=1500, le=5000)):
             conn = sqlite3.connect(db_path)
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
+            
+            # Fetch a balanced national distribution across all three requested tiers:
+            # 1. Red Tier (Score >= 80)
+            # 2. Black Tier (Score 45-79)
+            # 3. Orange Tier (Least Risk: Score 20-44 from MODERATE)
+            sub_limit = max(100, limit // 3)
+            
             cur.execute("""
-                SELECT h3_index, risk_score, risk_level, risk_color 
+                SELECT h3_index, risk_score, 'SEVERE (80+)' as risk_level, '#DC2626' as risk_color 
                 FROM risk_scores 
-                WHERE risk_level IN ('FATAL', 'CRITICAL', 'HIGH') 
+                WHERE risk_score >= 80 
                 ORDER BY risk_score DESC 
                 LIMIT ?
-            """, (limit,))
-            rows = cur.fetchall()
+            """, (sub_limit,))
+            red_rows = cur.fetchall()
             
-            for r in rows:
+            cur.execute("""
+                SELECT h3_index, risk_score, 'MEDIUM' as risk_level, '#000000' as risk_color 
+                FROM risk_scores 
+                WHERE risk_score >= 45 AND risk_score < 80 
+                ORDER BY risk_score DESC 
+                LIMIT ?
+            """, (sub_limit,))
+            black_rows = cur.fetchall()
+            
+            cur.execute("""
+                SELECT h3_index, risk_score, 'LEAST' as risk_level, '#F97316' as risk_color 
+                FROM risk_scores 
+                WHERE risk_score >= 20 AND risk_score < 45 
+                ORDER BY risk_score DESC 
+                LIMIT ?
+            """, (sub_limit,))
+            orange_rows = cur.fetchall()
+            
+            all_rows = list(red_rows) + list(black_rows) + list(orange_rows)
+            for r in all_rows:
                 poly = h3.cell_to_boundary(r["h3_index"])
                 lat, lon = h3.cell_to_latlng(r["h3_index"])
                 zones.append({
