@@ -74,12 +74,12 @@ export default function DigitalTwin() {
 
   // Chart data formatted for timeline
   const chartData = timestamps.slice(0, timeIndex + 1).map((ts) => {
-    const v1 = telemetry.find(t => t.timestamp === ts && t.vehicle_id.includes('VEH-01'));
-    const v2 = telemetry.find(t => t.timestamp === ts && t.vehicle_id.includes('VEH-02'));
+    const v1 = telemetry.find(t => t.timestamp === ts && (t.vehicle_id?.includes('01') || t.vehicle_id?.includes('V-01')));
+    const v2 = telemetry.find(t => t.timestamp === ts && (t.vehicle_id?.includes('02') || t.vehicle_id?.includes('V-02')));
     return {
-      timestamp: ts,
-      v1Risk: v1 ? v1.risk : 0,
-      v2Risk: v2 ? v2.risk : 0,
+      timestamp: ts.length > 8 ? ts.substring(11, 19) : ts,
+      v1Risk: v1 && v1.risk != null ? Number(v1.risk) : 0,
+      v2Risk: v2 && v2.risk != null ? Number(v2.risk) : 0,
     };
   });
 
@@ -156,7 +156,12 @@ export default function DigitalTwin() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {currentVehicles.map((v, idx) => {
-            const isDanger = v.status === 'CRITICAL' || v.status === 'DANGER' || v.risk > 70;
+            const lat = v.latitude ?? v.lat ?? 0;
+            const lon = v.longitude ?? v.lon ?? 0;
+            const speed = v.speed != null ? Number(v.speed) : 0;
+            const risk = v.risk != null ? Number(v.risk) : 0;
+            const isDanger = v.status === 'CRITICAL' || v.status === 'DANGER' || risk > 70;
+
             return (
               <div
                 key={idx}
@@ -172,8 +177,10 @@ export default function DigitalTwin() {
                       <Car className="w-4 h-4" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-white text-sm">{v.vehicle_id}</h3>
-                      <p className="text-[11px] text-slate-400">GPS: {v.lat.toFixed(4)}, {v.lon.toFixed(4)}</p>
+                      <h3 className="font-bold text-white text-sm">{v.vehicle_id || `Vehicle-${idx + 1}`}</h3>
+                      <p className="text-[11px] text-slate-400">
+                        GPS: {Number(lat).toFixed(4)}, {Number(lon).toFixed(4)}
+                      </p>
                     </div>
                   </div>
                   <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
@@ -186,12 +193,12 @@ export default function DigitalTwin() {
                 <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-800/80">
                   <div>
                     <span className="block text-[10px] text-slate-400 font-medium uppercase">Velocity</span>
-                    <span className="text-lg font-black text-white">{Math.round(v.speed)} km/h</span>
+                    <span className="text-lg font-black text-white">{Math.round(speed)} km/h</span>
                   </div>
                   <div>
                     <span className="block text-[10px] text-slate-400 font-medium uppercase">Active Risk Index</span>
-                    <span className={`text-lg font-black ${v.risk > 60 ? 'text-red-400' : 'text-emerald-400'}`}>
-                      {v.risk.toFixed(1)} / 100
+                    <span className={`text-lg font-black ${risk > 60 ? 'text-red-400' : 'text-emerald-400'}`}>
+                      {risk.toFixed(1)} / 100
                     </span>
                   </div>
                 </div>

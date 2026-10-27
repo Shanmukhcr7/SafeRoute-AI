@@ -348,10 +348,19 @@ def get_simulation_telemetry():
             cur = conn.cursor()
             cur.execute("SELECT * FROM vehicle_telemetry ORDER BY timestamp ASC LIMIT 500")
             rows = cur.fetchall()
-            telemetry = [dict(r) for r in rows]
+            for r in rows:
+                d = dict(r)
+                # Ensure both lat/lon and latitude/longitude exist
+                lat = d.get("latitude") if d.get("latitude") is not None else d.get("lat", 0.0)
+                lon = d.get("longitude") if d.get("longitude") is not None else d.get("lon", 0.0)
+                d["lat"] = lat
+                d["lon"] = lon
+                d["latitude"] = lat
+                d["longitude"] = lon
+                telemetry.append(d)
             conn.close()
-        except Exception:
-            pass
+        except Exception as e:
+            print("Telemetry fetch error:", e)
             
     return {"telemetry": telemetry, "total": len(telemetry)}
 
