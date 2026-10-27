@@ -1,21 +1,23 @@
 @echo off
 echo ==============================================
-echo 🚗 ROAD RISK AI - Enterprise Deployment Suite
+echo 🚗 SAFEROUTE-AI - Modern Full-Stack Suite
 echo ==============================================
 echo.
 
 echo [1/2] Starting FastAPI Backend (Port 8000)...
-start "Backend API" cmd /k "python -m uvicorn api.fastapi_app:app --reload"
+start "SafeRoute-AI Backend" cmd /k "python -m uvicorn api.fastapi_app:app --host 127.0.0.1 --port 8000 --reload"
 
-echo [2/2] Starting Streamlit Dashboard (Port 8501)...
-timeout /t 3 >nul
-start "Frontend UI" cmd /k "python -m streamlit run dashboard/app.py"
+echo [2/2] Starting React Modern UI (Port 5173)...
+timeout /t 2 >nul
+start "SafeRoute-AI React UI" cmd /k "npm --prefix web-ui run dev"
 
 echo.
-echo ✅ System is successfully launching!
+echo ✅ SafeRoute-AI Full-Stack is running!
 echo.
-echo Dashboard URL: http://localhost:8501
-echo REST API URL:  http://127.0.0.1:8000/docs
+echo 🌐 Modern React Dashboard: http://localhost:5173
+echo ⚡ FastAPI Swagger Docs:    http://127.0.0.1:8000/docs
 echo.
-echo To stop the servers, close the two terminal windows that just opened.
+echo (Streamlit legacy dashboard still available via: streamlit run dashboard/app.py)
+echo.
+echo To stop the servers, close the opened terminal windows.
 pause
