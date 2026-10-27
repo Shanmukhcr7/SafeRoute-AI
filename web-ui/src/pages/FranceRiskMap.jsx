@@ -77,40 +77,47 @@ export default function FranceRiskMap() {
     layerGroupRef.current.clearLayers();
 
     const filteredZones = zones.filter((z) => {
-      if (selectedFilter === 'FATAL') return z.level === 'FATAL';
-      if (selectedFilter === 'CRITICAL') return z.level === 'CRITICAL' || z.level === 'FATAL';
-      if (selectedFilter === 'HIGH') return z.level === 'HIGH' || z.level === 'CRITICAL' || z.level === 'FATAL';
+      const score = z.score || 0;
+      if (selectedFilter === 'FATAL') return score >= 80;
+      if (selectedFilter === 'CRITICAL') return score >= 45 && score < 80;
+      if (selectedFilter === 'HIGH') return score < 45;
       return true;
     });
 
     filteredZones.forEach((z) => {
-      let strokeColor = '#f59e0b';
-      let fillColor = '#fbbf24';
+      const score = z.score || 0;
+      let strokeColor, fillColor, fillOpacity, tierLabel;
 
-      if (z.level === 'FATAL') {
-        strokeColor = '#7f1d1d';
+      if (score >= 80) {
+        strokeColor = '#b91c1c';
         fillColor = '#dc2626';
-      } else if (z.level === 'CRITICAL') {
-        strokeColor = '#991b1b';
-        fillColor = '#ef4444';
-      } else if (z.level === 'HIGH') {
+        fillOpacity = 0.75;
+        tierLabel = '80+ SEVERE (RED)';
+      } else if (score >= 45) {
+        strokeColor = '#52525b';
+        fillColor = '#000000';
+        fillOpacity = 0.8;
+        tierLabel = 'MEDIUM RISK (BLACK)';
+      } else {
         strokeColor = '#c2410c';
         fillColor = '#f97316';
+        fillOpacity = 0.65;
+        tierLabel = 'LEAST RISK (ORANGE)';
       }
 
       const poly = L.polygon(z.polygon, {
         color: strokeColor,
         weight: 1.5,
-        opacity: 0.85,
+        opacity: 0.95,
         fillColor: fillColor,
-        fillOpacity: 0.55,
+        fillOpacity: fillOpacity,
       });
 
       poly.bindTooltip(`
         <div style="font-family:sans-serif; font-size:12px; line-height:1.4;">
-          <b style="color:${strokeColor}">⚠️ ${z.level} NATIONAL HOTSPOT</b><br/>
+          <b style="color:${score >= 80 ? '#ef4444' : (score >= 45 ? '#e4e4e7' : '#fb923c')}">⚠️ ${tierLabel} HOTSPOT</b><br/>
           <b>H3 Cell ID:</b> <span style="font-family:monospace">${z.h3_index}</span><br/>
-          <b>Historical Severity Score:</b> ${z.score.toFixed(1)} / 100<br/>
+          <b>Historical Severity Score:</b> ${score.toFixed(1)} / 100<br/>
           <b>Location:</b> ${z.centroid[0].toFixed(4)}, ${z.centroid[1].toFixed(4)}
         </div>
       `, { className: 'custom-tooltip', sticky: true });
@@ -165,9 +172,9 @@ export default function FranceRiskMap() {
           <div className="flex space-x-1.5">
             {[
               { id: 'ALL', label: 'All Loaded Tiers' },
-              { id: 'FATAL', label: '🔴 Fatal (80+)' },
-              { id: 'CRITICAL', label: '🟥 Critical & Fatal' },
-              { id: 'HIGH', label: '🟧 High & Above' },
+              { id: 'FATAL', label: '🔴 80+ Severe (Red)' },
+              { id: 'CRITICAL', label: '⬛ Medium (Black)' },
+              { id: 'HIGH', label: '🟧 Least (Orange)' },
             ].map((f) => (
               <button
                 key={f.id}

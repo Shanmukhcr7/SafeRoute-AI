@@ -195,7 +195,7 @@ def compute_route_analysis(route_name: str, weather: str, time_of_day: str):
     hotspots = []
     
     for z in analysis.get("passed_zones", []):
-        if z in dynamic_zones and dynamic_zones[z]["level"] in ["FATAL", "CRITICAL", "HIGH", "MODERATE"]:
+        if z in dynamic_zones and (dynamic_zones[z]["score"] >= 25 or dynamic_zones[z]["level"] in ["SEVERE (80+)", "MEDIUM", "LEAST", "FATAL", "CRITICAL", "HIGH", "MODERATE"]):
             poly = h3.cell_to_boundary(z)
             poly_latlng = [[p[0], p[1]] for p in poly]
             z_info = dynamic_zones[z]

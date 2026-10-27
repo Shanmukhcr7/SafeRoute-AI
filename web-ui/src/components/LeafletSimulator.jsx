@@ -130,53 +130,55 @@ export default function LeafletSimulator({
     const processedTurfZones = [];
 
     hotspots.forEach((zone) => {
-      let strokeColor = '#f59e0b';
-      let fillColor = '#fbbf24';
-      let fillOpacity = 0.5;
-      let badgeClass = 'moderate';
+      const score = zone.score || 0;
+      let strokeColor, fillColor, fillOpacity, badgeClass, tierLabel;
 
-      if (zone.level === 'FATAL') {
-        strokeColor = '#7f1d1d';
+      // Color logic: Red for 80+, Black for medium (45-79), Orange for least (<45)
+      if (score >= 80) {
+        strokeColor = '#b91c1c';
         fillColor = '#dc2626';
-        fillOpacity = 0.65;
-        badgeClass = 'fatal';
-      } else if (zone.level === 'CRITICAL') {
-        strokeColor = '#991b1b';
-        fillColor = '#ef4444';
-        fillOpacity = 0.6;
-        badgeClass = 'critical';
-      } else if (zone.level === 'HIGH') {
+        fillOpacity = 0.75;
+        badgeClass = 'score-red';
+        tierLabel = '80+ SEVERE (RED)';
+      } else if (score >= 45) {
+        strokeColor = '#52525b';
+        fillColor = '#000000';
+        fillOpacity = 0.8;
+        badgeClass = 'score-black';
+        tierLabel = 'MEDIUM RISK (BLACK)';
+      } else {
         strokeColor = '#c2410c';
         fillColor = '#f97316';
-        fillOpacity = 0.55;
-        badgeClass = 'high';
+        fillOpacity = 0.65;
+        badgeClass = 'score-orange';
+        tierLabel = 'LEAST RISK (ORANGE)';
       }
 
       if (zone.polygon && zone.polygon.length >= 3) {
         const poly = L.polygon(zone.polygon, {
           color: strokeColor,
           weight: 2.5,
-          opacity: 0.9,
+          opacity: 0.95,
           fillColor: fillColor,
           fillOpacity: fillOpacity,
         });
 
         const tooltipContent = `
           <div style="font-family:sans-serif; font-size:12px; line-height:1.4;">
-            <b style="color:${strokeColor}">⚠️ ${zone.level} ACCIDENT HOTSPOT</b><br/>
-            <b>Dynamic AI Risk:</b> ${(zone.score || 0).toFixed(1)} / 100<br/>
-            <b>Base Historical Risk:</b> ${(zone.base_score || zone.score || 0).toFixed(1)}<br/>
+            <b style="color:${score >= 80 ? '#ef4444' : (score >= 45 ? '#e4e4e7' : '#fb923c')}">⚠️ ${tierLabel} HOTSPOT</b><br/>
+            <b>Dynamic AI Risk:</b> ${score.toFixed(1)} / 100<br/>
+            <b>Base Historical Risk:</b> ${(zone.base_score || score).toFixed(1)}<br/>
             <b>Weather Multiplier:</b> ${(zone.multiplier || 1.0).toFixed(2)}x<br/>
-            <b>Status:</b> ${zone.level === 'FATAL' || zone.level === 'CRITICAL' ? 'High Lethality Cluster' : 'Dense Crash Corridor'}
+            <b>Status:</b> ${score >= 80 ? 'Severe Lethality Zone' : (score >= 45 ? 'Medium Risk Cluster' : 'Lower Incident Stretch')}
           </div>
         `;
         poly.bindTooltip(tooltipContent, { className: 'custom-tooltip', sticky: true });
         zonesLayerGroupRef.current.addLayer(poly);
 
-        // Centroid Badge for High/Critical/Fatal
-        if (['FATAL', 'CRITICAL', 'HIGH'].includes(zone.level) && zone.centroid) {
+        // Centroid Badge
+        if (zone.centroid) {
           const badgeIcon = L.divIcon({
-            html: `<div class="hotspot-badge ${badgeClass}" title="${zone.level} Hotspot">⚠️</div>`,
+            html: `<div class="hotspot-badge ${badgeClass}" title="${tierLabel} Hotspot (${score.toFixed(1)})">⚠️</div>`,
             className: '',
             iconSize: [24, 24],
             iconAnchor: [12, 12],
@@ -334,12 +336,15 @@ export default function LeafletSimulator({
           const speedPill = document.getElementById('car-speed-badge');
 
           if (hit) {
+            const hScore = hit.score || 0;
+            const hitClass = hScore >= 80 ? 'score-80-red' : (hScore >= 45 ? 'score-medium-black' : 'score-least-orange');
+            const tierTitle = hScore >= 80 ? '80+ SEVERE' : (hScore >= 45 ? 'MEDIUM RISK' : 'LEAST RISK');
             if (alertBubble) {
-              alertBubble.className = `car-alert-bubble ${hit.level.toLowerCase()}-level`;
+              alertBubble.className = `car-alert-bubble ${hitClass}`;
               alertBubble.classList.remove('hidden');
             }
             if (alertText) {
-              alertText.innerText = `${hit.level}: ${Math.round(currentLiveSpeedRef.current)} km/h`;
+              alertText.innerText = `⚠️ ${tierTitle}: ${Math.round(currentLiveSpeedRef.current)} km/h`;
             }
             if (hazardHalo) hazardHalo.classList.remove('hidden');
             if (speedPill) speedPill.classList.add('alert-active');
@@ -458,34 +463,33 @@ export default function LeafletSimulator({
           </span>
         </div>
 
-        <div className="space-y-1.5 text-slate-300">
+        <div className="space-y-2 text-slate-300">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-600 ring-2 ring-red-600/30"></span>
-              <span>Fatal Risk (80–100)</span>
+              <span className="w-3 h-3 rounded-full bg-red-600 ring-2 ring-red-600/40 shadow-sm"></span>
+              <span className="font-semibold text-white">80+ Scored (Red)</span>
             </div>
-            <span className="font-semibold text-white">{hotspots.filter(h => h.level === 'FATAL').length}</span>
+            <span className="font-bold text-red-400 bg-red-950/60 px-2 py-0.5 rounded border border-red-800 text-[11px]">
+              {hotspots.filter(h => (h.score || 0) >= 80).length}
+            </span>
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-red-500/30"></span>
-              <span>Critical Risk (65–79)</span>
+              <span className="w-3 h-3 rounded-full bg-black border-2 border-slate-500 ring-2 ring-slate-800 shadow-sm"></span>
+              <span className="font-semibold text-white">Medium Scored (Black)</span>
             </div>
-            <span className="font-semibold text-white">{hotspots.filter(h => h.level === 'CRITICAL').length}</span>
+            <span className="font-bold text-slate-200 bg-slate-950 px-2 py-0.5 rounded border border-slate-700 text-[11px]">
+              {hotspots.filter(h => (h.score || 0) >= 45 && (h.score || 0) < 80).length}
+            </span>
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-orange-500 ring-2 ring-orange-500/30"></span>
-              <span>High Risk (45–64)</span>
+              <span className="w-3 h-3 rounded-full bg-orange-500 ring-2 ring-orange-500/40 shadow-sm"></span>
+              <span className="font-semibold text-white">Least Scored (Orange)</span>
             </div>
-            <span className="font-semibold text-white">{hotspots.filter(h => h.level === 'HIGH').length}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-amber-400/30"></span>
-              <span>Moderate Risk (25–44)</span>
-            </div>
-            <span className="font-semibold text-white">{hotspots.filter(h => h.level === 'MODERATE').length}</span>
+            <span className="font-bold text-orange-400 bg-orange-950/60 px-2 py-0.5 rounded border border-orange-800 text-[11px]">
+              {hotspots.filter(h => (h.score || 0) < 45).length}
+            </span>
           </div>
         </div>
 

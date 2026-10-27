@@ -72,24 +72,19 @@ class RouteAnalyzer:
                 base_score = self.risk_zones[z]["score"]
                 dynamic_score = min(base_score * multiplier, 100.0)
                 
-                # Recalculate level based on new score
+                # Recalculate level and color based on exact requested thresholds:
+                # Red for 80+, Black for medium (45-79), Orange for least (<45)
                 if dynamic_score >= 80: 
-                    level = "FATAL"
-                    dyn_color = "#DC2626"
-                elif dynamic_score >= 65: 
-                    level = "CRITICAL"
-                    dyn_color = "#EF4444"
+                    level = "SEVERE (80+)"
+                    dyn_color = "#DC2626" # Red
                 elif dynamic_score >= 45: 
-                    level = "HIGH"
-                    dyn_color = "#F97316"
-                elif dynamic_score >= 25: 
-                    level = "MODERATE"
-                    dyn_color = "#FBBF24"
+                    level = "MEDIUM"
+                    dyn_color = "#000000" # Black
                 else: 
-                    level = "LOW"
-                    dyn_color = "#10B981"
+                    level = "LEAST"
+                    dyn_color = "#F97316" # Orange
                 
-                if level in ["CRITICAL", "FATAL"]:
+                if dynamic_score >= 80:
                     critical_count += 1
                     
                 dynamic_zones[z] = {

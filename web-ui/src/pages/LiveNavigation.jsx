@@ -661,19 +661,19 @@ export default function LiveNavigation() {
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 text-slate-200">
                     {routeAnalysis.hotspots.slice(0, 8).map((h) => {
-                      const isFatal = h.level === 'FATAL';
-                      const isCrit = h.level === 'CRITICAL';
-                      const isHigh = h.level === 'HIGH';
+                      const score = h.score || 0;
+                      const isRed = score >= 80;
+                      const isBlack = score >= 45 && score < 80;
+                      const isOrange = score < 45;
                       return (
                         <tr key={h.h3_index} className="hover:bg-slate-800/40 transition-colors">
                           <td className="py-2.5 px-3">
                             <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                              isFatal ? 'bg-red-950 text-red-400 border border-red-800' :
-                              isCrit ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                              isHigh ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
-                              'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                              isRed ? 'bg-red-950 text-red-400 border border-red-800' :
+                              isBlack ? 'bg-black text-slate-100 border border-slate-600' :
+                              'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                             }`}>
-                              {h.level}
+                              {isRed ? '80+ SEVERE (RED)' : (isBlack ? 'MEDIUM (BLACK)' : 'LEAST (ORANGE)')}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 font-mono text-[11px] text-slate-400">
@@ -683,18 +683,18 @@ export default function LiveNavigation() {
                             {h.centroid[0].toFixed(4)}, {h.centroid[1].toFixed(4)}
                           </td>
                           <td className="py-2.5 px-3 font-extrabold text-white">
-                            {h.score.toFixed(1)} / 100
+                            {score.toFixed(1)} / 100
                           </td>
                           <td className="py-2.5 px-3 text-slate-300 font-semibold">
-                            {h.base_score.toFixed(1)}
+                            {(h.base_score || score).toFixed(1)}
                           </td>
                           <td className="py-2.5 px-3 font-semibold text-blue-400">
-                            {h.multiplier.toFixed(2)}x
+                            {(h.multiplier || 1.0).toFixed(2)}x
                           </td>
                           <td className="py-2.5 px-3 text-slate-300">
-                            {isFatal ? 'Reduce speed to 30 km/h (Fatal cluster)' :
-                             isCrit ? 'Reduce speed to 50 km/h (High risk)' :
-                             'Exercise caution'}
+                            {isRed ? 'Reduce speed to 35 km/h (Severe zone)' :
+                             isBlack ? 'Reduce speed to 65 km/h (Medium risk)' :
+                             'Exercise normal caution'}
                           </td>
                         </tr>
                       );
