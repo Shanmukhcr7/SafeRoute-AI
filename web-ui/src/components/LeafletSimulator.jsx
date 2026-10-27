@@ -10,14 +10,18 @@ import {
   Crosshair, 
   AlertTriangle, 
   Gauge, 
-  ShieldAlert
+  ShieldAlert,
+  Settings
 } from 'lucide-react';
 
 export default function LeafletSimulator({ 
   geometry = [], 
   hotspots = [], 
   environment = { weather: 'Clear', time_of_day: 'Day' },
-  onAlert = null 
+  initialSpeed = 130,
+  autoStart = true,
+  onAlert = null,
+  onReconfigure = null
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -25,12 +29,20 @@ export default function LeafletSimulator({
   const pathLayerRef = useRef(null);
   const zonesLayerGroupRef = useRef(null);
 
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [speedKmh, setSpeedKmh] = useState(200);
+  const [isPlaying, setIsPlaying] = useState(autoStart);
+  const [speedKmh, setSpeedKmh] = useState(initialSpeed);
   const [progressKm, setProgressKm] = useState(0);
   const [totalKm, setTotalKm] = useState(0);
   const [followCar, setFollowCar] = useState(false);
   const [activeAlert, setActiveAlert] = useState(null);
+
+  // Sync external speed changes
+  useEffect(() => {
+    if (initialSpeed) {
+      setSpeedKmh(initialSpeed);
+      speedRef.current = initialSpeed;
+    }
+  }, [initialSpeed]);
 
   // References for animation loop to avoid re-renders
   const animFrameRef = useRef(null);
@@ -488,20 +500,33 @@ export default function LeafletSimulator({
           </div>
         </div>
 
-        {/* Speed Slider */}
-        <div className="flex items-center space-x-3 text-xs">
-          <Gauge className="w-4 h-4 text-blue-400" />
-          <span className="text-slate-400 font-medium">Demo Speed:</span>
-          <span className="font-extrabold text-white text-sm min-w-[50px]">{speedKmh} km/h</span>
-          <input
-            type="range"
-            min="30"
-            max="300"
-            step="10"
-            value={speedKmh}
-            onChange={(e) => setSpeedKmh(Number(e.target.value))}
-            className="w-24 accent-blue-500 cursor-pointer"
-          />
+        {/* Speed Slider & Reconfigure */}
+        <div className="flex items-center space-x-4 text-xs">
+          <div className="flex items-center space-x-2">
+            <Gauge className="w-4 h-4 text-blue-400" />
+            <span className="text-slate-400 font-medium">Speed:</span>
+            <span className="font-extrabold text-white text-sm min-w-[50px]">{speedKmh} km/h</span>
+            <input
+              type="range"
+              min="30"
+              max="300"
+              step="10"
+              value={speedKmh}
+              onChange={(e) => setSpeedKmh(Number(e.target.value))}
+              className="w-24 accent-blue-500 cursor-pointer"
+            />
+          </div>
+
+          {onReconfigure && (
+            <button
+              onClick={onReconfigure}
+              className="py-1.5 px-3 rounded-xl bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700 font-bold flex items-center space-x-1.5 border border-slate-700 transition-all shadow-sm"
+              title="Return to Mission Configuration"
+            >
+              <Settings className="w-3.5 h-3.5 text-blue-400" />
+              <span>Modify Setup</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
