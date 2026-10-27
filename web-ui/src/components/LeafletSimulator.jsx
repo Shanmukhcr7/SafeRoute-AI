@@ -41,6 +41,7 @@ export default function LeafletSimulator({
     if (initialSpeed) {
       setSpeedKmh(initialSpeed);
       speedRef.current = initialSpeed;
+      currentLiveSpeedRef.current = initialSpeed;
     }
   }, [initialSpeed]);
 
@@ -50,6 +51,7 @@ export default function LeafletSimulator({
   const currentDistRef = useRef(0);
   const isPlayingRef = useRef(isPlaying);
   const speedRef = useRef(speedKmh);
+  const currentLiveSpeedRef = useRef(speedKmh);
   const followCarRef = useRef(followCar);
   const activeAlertIdRef = useRef(null);
   const lastProgressUpdateRef = useRef(0);
@@ -200,25 +202,44 @@ export default function LeafletSimulator({
       }
     });
 
-    // 4. Vehicle Marker Setup
+    // 4. Vehicle Marker Setup with Live Speed HUD & Attached Alert Popup
     if (carMarkerRef.current && map.hasLayer(carMarkerRef.current)) {
       map.removeLayer(carMarkerRef.current);
     }
 
-    const carSvg = `
-      <div id="car-inner" style="transition: transform 0.1s linear;">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M7 6L9 2H15L17 6V18L15 22H9L7 18V6Z" fill="#ef4444" stroke="#ffffff" stroke-width="2"/>
-          <path d="M8 8H16V12H8V8Z" fill="#1e293b"/>
-        </svg>
+    const carIconHtml = `
+      <div class="car-marker-hud-wrapper" style="width: 260px; height: 95px; margin-left: -130px; margin-top: -68px;">
+        <!-- Alert Popup Bubble (Anchored right above the car!) -->
+        <div id="car-alert-bubble" class="car-alert-bubble hidden">
+          <span>⚠️</span>
+          <span id="car-alert-text">ALERT 500m AHEAD</span>
+        </div>
+
+        <!-- Live Speed Badge (Directly on the car!) -->
+        <div id="car-speed-badge" class="car-speed-pill">
+          <span>⚡</span>
+          <span id="car-speed-val">${Math.round(currentLiveSpeedRef.current)}</span>
+          <span style="font-size: 8px; opacity: 0.85;">km/h</span>
+        </div>
+
+        <!-- Vehicle Body with Heading Rotation & Hazard Halo -->
+        <div id="car-inner" style="transition: transform 0.1s linear; position: relative;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 6L9 2H15L17 6V18L15 22H9L7 18V6Z" fill="#ef4444" stroke="#ffffff" stroke-width="2"/>
+            <path d="M8 8H16V12H8V8Z" fill="#1e293b"/>
+            <circle cx="10" cy="4" r="1.2" fill="#38bdf8"/>
+            <circle cx="14" cy="4" r="1.2" fill="#38bdf8"/>
+          </svg>
+          <div id="car-hazard-halo" class="car-hazard-halo hidden"></div>
+        </div>
       </div>
     `;
 
     const carIcon = L.divIcon({
-      html: `<div class="car-marker-container">${carSvg}</div>`,
+      html: carIconHtml,
       className: '',
-      iconSize: [26, 26],
-      iconAnchor: [13, 13],
+      iconSize: [0, 0],
+      iconAnchor: [0, 0],
     });
 
     const startCoord = [geometry[0][1], geometry[0][0]];
@@ -239,41 +260,11 @@ export default function LeafletSimulator({
       lastTimeRef.current = timestamp;
 
       if (isPlayingRef.current) {
-        currentDistRef.current += (speedRef.current / 3600) * deltaTime;
-
-        if (currentDistRef.current >= totalDist) {
-          currentDistRef.current = totalDist;
-          setIsPlaying(false);
-          setProgressKm(totalDist);
-        } else {
-          // Throttle progress state updates to ~8fps to eliminate 60fps React re-render churn
-          if (!lastProgressUpdateRef.current || (timestamp - lastProgressUpdateRef.current) > 120) {
-            lastProgressUpdateRef.current = timestamp;
-            setProgressKm(currentDistRef.current);
-          }
-        }
-
         try {
           const safeDist = Math.max(0, Math.min(currentDistRef.current, Math.max(0.001, totalDist - 0.001)));
           const currentPt = turf.along(routeLine, safeDist, { units: 'kilometers' }).geometry.coordinates;
           const lat = currentPt[1];
           const lon = currentPt[0];
-
-          // Rotate car heading
-          if (currentDistRef.current + 0.08 < totalDist) {
-            const nextPt = turf.along(routeLine, currentDistRef.current + 0.08, { units: 'kilometers' }).geometry.coordinates;
-            const bearing = turf.bearing(turf.point(currentPt), turf.point(nextPt));
-            const carElem = document.getElementById('car-inner');
-            if (carElem) {
-              carElem.style.transform = `rotate(${bearing}deg)`;
-            }
-          }
-
-          carMarker.setLatLng([lat, lon]);
-
-          if (followCarRef.current) {
-            map.panTo([lat, lon], { animate: false });
-          }
 
           // 500m Lookahead Collision Detection
           const checkDistance = Math.min(currentDistRef.current + 0.5, totalDist);
@@ -296,6 +287,82 @@ export default function LeafletSimulator({
               hit = z;
               break;
             }
+          }
+
+          // ADAS Target Speed: Automatically decelerate when hazard approaches
+          let targetSpeed = speedRef.current;
+          if (hit) {
+            if (hit.level === 'FATAL') targetSpeed = 35;
+            else if (hit.level === 'CRITICAL') targetSpeed = 50;
+            else if (hit.level === 'HIGH') targetSpeed = 75;
+            else targetSpeed = 95;
+            targetSpeed = Math.min(targetSpeed, speedRef.current);
+          }
+
+          // Smooth realistic emergency deceleration & re-acceleration
+          if (currentLiveSpeedRef.current > targetSpeed) {
+            currentLiveSpeedRef.current = Math.max(targetSpeed, currentLiveSpeedRef.current - 75 * deltaTime);
+          } else if (currentLiveSpeedRef.current < targetSpeed) {
+            currentLiveSpeedRef.current = Math.min(targetSpeed, currentLiveSpeedRef.current + 45 * deltaTime);
+          }
+
+          // Advance distance using dynamic live speed
+          currentDistRef.current += (currentLiveSpeedRef.current / 3600) * deltaTime;
+
+          if (currentDistRef.current >= totalDist) {
+            currentDistRef.current = totalDist;
+            setIsPlaying(false);
+            setProgressKm(totalDist);
+          } else {
+            // Throttle progress state updates to ~8fps to eliminate React re-render churn
+            if (!lastProgressUpdateRef.current || (timestamp - lastProgressUpdateRef.current) > 120) {
+              lastProgressUpdateRef.current = timestamp;
+              setProgressKm(currentDistRef.current);
+            }
+          }
+
+          // 1. Update Live Speed Display directly on the car marker
+          const speedValElem = document.getElementById('car-speed-val');
+          if (speedValElem) {
+            speedValElem.innerText = Math.round(currentLiveSpeedRef.current);
+          }
+
+          // 2. Update Alert Pop-up directly on the car marker
+          const alertBubble = document.getElementById('car-alert-bubble');
+          const alertText = document.getElementById('car-alert-text');
+          const hazardHalo = document.getElementById('car-hazard-halo');
+          const speedPill = document.getElementById('car-speed-badge');
+
+          if (hit) {
+            if (alertBubble) {
+              alertBubble.className = `car-alert-bubble ${hit.level.toLowerCase()}-level`;
+              alertBubble.classList.remove('hidden');
+            }
+            if (alertText) {
+              alertText.innerText = `${hit.level}: ${Math.round(currentLiveSpeedRef.current)} km/h`;
+            }
+            if (hazardHalo) hazardHalo.classList.remove('hidden');
+            if (speedPill) speedPill.classList.add('alert-active');
+          } else {
+            if (alertBubble) alertBubble.classList.add('hidden');
+            if (hazardHalo) hazardHalo.classList.add('hidden');
+            if (speedPill) speedPill.classList.remove('alert-active');
+          }
+
+          // Rotate car heading
+          if (currentDistRef.current + 0.08 < totalDist) {
+            const nextPt = turf.along(routeLine, currentDistRef.current + 0.08, { units: 'kilometers' }).geometry.coordinates;
+            const bearing = turf.bearing(turf.point(currentPt), turf.point(nextPt));
+            const carElem = document.getElementById('car-inner');
+            if (carElem) {
+              carElem.style.transform = `rotate(${bearing}deg)`;
+            }
+          }
+
+          carMarker.setLatLng([lat, lon]);
+
+          if (followCarRef.current) {
+            map.panTo([lat, lon], { animate: false });
           }
 
           // State update ONLY if alert state changed (avoids 60fps re-render freeze!)
@@ -359,6 +426,15 @@ export default function LeafletSimulator({
     currentDistRef.current = 0;
     setProgressKm(0);
     setIsPlaying(true);
+    currentLiveSpeedRef.current = speedRef.current;
+    activeAlertIdRef.current = null;
+    setActiveAlert(null);
+    const alertBubble = document.getElementById('car-alert-bubble');
+    if (alertBubble) alertBubble.classList.add('hidden');
+    const hazardHalo = document.getElementById('car-hazard-halo');
+    if (hazardHalo) hazardHalo.classList.add('hidden');
+    const speedPill = document.getElementById('car-speed-badge');
+    if (speedPill) speedPill.classList.remove('alert-active');
     if (carMarkerRef.current && geometry.length > 0) {
       carMarkerRef.current.setLatLng([geometry[0][1], geometry[0][0]]);
     }
