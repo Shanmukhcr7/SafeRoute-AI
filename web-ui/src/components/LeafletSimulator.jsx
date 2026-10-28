@@ -138,21 +138,21 @@ export default function LeafletSimulator({
       if (score >= 80) {
         strokeColor = '#b91c1c';
         fillColor = '#dc2626';
-        fillOpacity = 0.8;
+        fillOpacity = 0.65;
         badgeClass = 'score-red';
         tierLabel = '80+ SEVERE (RED)';
         badgeIconSymbol = '⚠️';
       } else if (score >= 45) {
         strokeColor = '#52525b';
         fillColor = '#000000';
-        fillOpacity = 0.85;
+        fillOpacity = 0.70;
         badgeClass = 'score-black';
         tierLabel = 'MEDIUM RISK (BLACK)';
         badgeIconSymbol = '⬛';
       } else {
         strokeColor = '#ea580c';
         fillColor = '#f97316';
-        fillOpacity = 0.75;
+        fillOpacity = 0.60;
         badgeClass = 'score-orange';
         tierLabel = 'LEAST RISK (ORANGE)';
         badgeIconSymbol = '🟧';
@@ -167,8 +167,8 @@ export default function LeafletSimulator({
       if (isVisible && zone.polygon && zone.polygon.length >= 3) {
         const poly = L.polygon(zone.polygon, {
           color: strokeColor,
-          weight: score < 45 ? 3.5 : 2.5,
-          opacity: 0.95,
+          weight: 2.5,
+          opacity: 0.92,
           fillColor: fillColor,
           fillOpacity: fillOpacity,
         });

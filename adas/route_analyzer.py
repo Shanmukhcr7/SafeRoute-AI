@@ -39,6 +39,7 @@ class RouteAnalyzer:
         """
         passed_zones = set()
         seen_cells = set()
+        cell_order = []
         
         # Sampling step: res 8 H3 cells have ~900m diameter; step of 4 gives dense corridor coverage without redundant re-checks
         step = 4
@@ -51,10 +52,7 @@ class RouteAnalyzer:
             
             if h3_idx in self.risk_zones:
                 passed_zones.add(h3_idx)
-            # Include corridor neighbors with historical risk
-            for neighbor in h3.grid_disk(h3_idx, 1):
-                if neighbor in self.risk_zones and self.risk_zones[neighbor]["score"] >= 30:
-                    passed_zones.add(neighbor)
+                cell_order.append((h3_idx, i))
                 
         # Calculate dynamic score using ML model
         total_dynamic_score = 0
@@ -111,5 +109,6 @@ class RouteAnalyzer:
             "critical_zones": critical_count,
             "safety_score": round(safety_score, 1),
             "passed_zones": list(passed_zones),
+            "cell_order": cell_order,
             "dynamic_zones": dynamic_zones
         }

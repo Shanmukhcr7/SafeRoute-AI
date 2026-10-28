@@ -189,29 +189,56 @@ def compute_route_analysis(route_name: str, weather: str, time_of_day: str):
         route_data = json.load(f)
         
     geom = route_data["geometry"]
+    total_route_dist = route_data.get("distance_km", 465.0)
     analysis = analyzer.analyze_route(geom, weather=weather, time_of_day=time_of_day)
     
     dynamic_zones = analysis.get("dynamic_zones", {})
-    hotspots = []
+    cell_order = analysis.get("cell_order", [])
     
-    for z in analysis.get("passed_zones", []):
-        if z in dynamic_zones and (dynamic_zones[z]["score"] >= 25 or dynamic_zones[z]["level"] in ["SEVERE (80+)", "MEDIUM", "LEAST", "FATAL", "CRITICAL", "HIGH", "MODERATE"]):
-            poly = h3.cell_to_boundary(z)
-            poly_latlng = [[p[0], p[1]] for p in poly]
-            z_info = dynamic_zones[z]
-            lat, lon = h3.cell_to_latlng(z)
+    # 1. Filter corridor cells to genuine hazard candidates (dynamic risk score >= 20.0)
+    # This filters out ~270 ambient highway cells with minimal historical risk (scores 2.9 to 15)
+    candidates = []
+    seen = set()
+    
+    if cell_order:
+        for z, idx in cell_order:
+            if z not in seen and z in dynamic_zones and dynamic_zones[z]["score"] >= 20.0:
+                seen.add(z)
+                pos_km = (idx / max(1, len(geom))) * total_route_dist
+                candidates.append((z, pos_km, dynamic_zones[z]))
+    else:
+        for z in analysis.get("passed_zones", []):
+            if z in dynamic_zones and dynamic_zones[z]["score"] >= 20.0:
+                candidates.append((z, 0.0, dynamic_zones[z]))
+                
+    # 2. Thin contiguous adjacent cells to create discrete, clearly separated hotspots
+    # Enforces minimum 2.5 km spacing along the corridor (critical 80+ severe zones are always preserved)
+    thinned = []
+    last_km = -999.0
+    for z, pos_km, z_info in candidates:
+        score = z_info["score"]
+        if (pos_km - last_km >= 2.5) or score >= 80.0:
+            thinned.append((z, z_info))
+            last_km = pos_km
             
-            hotspots.append({
-                "h3_index": z,
-                "polygon": poly_latlng,
-                "centroid": [lat, lon],
-                "level": z_info["level"],
-                "score": round(z_info["score"], 1),
-                "base_score": round(z_info.get("base_score", z_info["score"]), 1),
-                "multiplier": round(z_info.get("multiplier", 1.0), 2),
-                "color": z_info["color"],
-            })
-            
+    # Format discrete hotspots for frontend Leaflet display
+    hotspots = []
+    for z, z_info in thinned:
+        poly = h3.cell_to_boundary(z)
+        poly_latlng = [[p[0], p[1]] for p in poly]
+        lat, lon = h3.cell_to_latlng(z)
+        
+        hotspots.append({
+            "h3_index": z,
+            "polygon": poly_latlng,
+            "centroid": [lat, lon],
+            "level": z_info["level"],
+            "score": round(z_info["score"], 1),
+            "base_score": round(z_info.get("base_score", z_info["score"]), 1),
+            "multiplier": round(z_info.get("multiplier", 1.0), 2),
+            "color": z_info["color"],
+        })
+        
     hotspots.sort(key=lambda x: x["score"], reverse=True)
     
     result = {
